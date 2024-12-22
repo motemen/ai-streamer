@@ -1,0 +1,60 @@
+@import url("https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&display=swap");
+
+body {
+  --text-color: lightgreen;
+  overflow: hidden;
+  background-color: transparent;
+}
+
+.container {
+  height: 100vh;
+  width: 100vw;
+}
+
+.caption {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.text {
+  z-index: 10;
+  color: var(--text-color);
+}
+
+.shadow,
+.text {
+  position: absolute;
+  bottom: 0;
+  width: 90%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "M PLUS Rounded 1c", sans-serif;
+  font-weight: 700;
+  font-size: 5vh;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.shadow {
+  -webkit-text-stroke: 1vh #000;
+  z-index: 5;
+}
+
+.avatar {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 30%;
+  height: 40%;
+  z-index: -10;
+}
+
+.avatarImage {
+}

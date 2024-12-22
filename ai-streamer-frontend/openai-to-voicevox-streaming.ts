@@ -75,7 +75,10 @@ async function generateAndQueueSpeech(text: string) {
 
   await writeFile(filePath, buffer);
 
-  soundPlayQueue.add(() => playAudioFile(filePath));
+  soundPlayQueue.add(async () => {
+    Clients.forEach((updateClient) => updateClient(text));
+    return playAudioFile(filePath);
+  });
 }
 
 async function playAudioFile(filePath: string) {
@@ -88,12 +91,14 @@ async function playAudioFile(filePath: string) {
 }
 
 // Function to connect the streaming and speech synthesis
-async function streamChatAndSynthesize(prompt: string) {
+export async function streamChatAndSynthesize(prompt: string) {
   for await (const part of getChatResponsesStream(prompt)) {
     await generateAndQueueSpeech(part);
     // appendCaption(part);
   }
 }
+
+export const Clients = new Set<(s: string) => void>();
 
 // streamChatAndSynthesize("こんにちは、元気ですか？ 400文字程度で。");
 
