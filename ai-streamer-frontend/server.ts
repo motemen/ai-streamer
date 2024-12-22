@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { streamSSE } from "hono/streaming";
 
 import {
@@ -8,6 +9,8 @@ import {
 } from "./openai-to-voicevox-streaming";
 
 const app = new Hono();
+
+app.use("*", serveStatic({ root: "./dist" }));
 
 app.get("/api/stream", (c) => {
   console.log("start streaming");
