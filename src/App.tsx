@@ -10,16 +10,21 @@ function Caption({ text }: { text: string }) {
   );
 }
 
-function Avatar() {
+function Avatar({
+  name = "default",
+}: {
+  name: string;
+  availableList: string[];
+}) {
   return (
     <div className={styles.avatar}>
-      <img src="/avatar/default.png" className={styles.avatarImage} />
+      <img src={`/avatar/${name}.png`} className={styles.avatarImage} />
     </div>
   );
 }
 
 function App() {
-  const [text, setText] = useState("");
+  const [caption, setCaption] = useState("");
 
   useEffect(() => {
     console.log("Opening EventSource");
@@ -32,14 +37,14 @@ function App() {
     eventSource.addEventListener("setCaption", (event) => {
       console.log("setCaption", event);
       const data = JSON.parse(event.data);
-      setText(data.text);
+      setCaption(data.text);
     });
 
     eventSource.onmessage = (event) => {
       console.log("onmessage", event);
       const data = JSON.parse(event.data);
       if (data.type === "setCaption") {
-        setText(data.text);
+        setCaption(data.text);
       } else {
         console.error("Unknown event type", event.data);
       }
@@ -58,8 +63,8 @@ function App() {
   return (
     <>
       <div className={styles.container}>
-        <Caption text={text} />
-        <Avatar />
+        <Caption text={caption} />
+        <Avatar name="default" availableList={["default"] /*FIXME*/} />
       </div>
     </>
   );
