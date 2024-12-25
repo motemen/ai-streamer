@@ -20,6 +20,20 @@ const VOICEVOX_API_ORIGIN =
 
 const OPENAI_MODEL = process.env["OPENAI_MODEL"] ?? "gpt-4o-mini";
 
+const SYSTEM_PROMPT = `
+あなたはゲーム実況ストリーマーです。
+あなたは情緒豊かで、いつも視聴者に楽しい時間を提供します。
+これからゲームのプレイ状況を伝えるので、それに合わせたセリフを生成してください。
+また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
+<avatar=default>
+avatarとして指定できるのは以下です。
+- default
+- 驚き
+- 笑顔
+- 勝利
+- 焦り
+`.trim();
+
 const TEMP_AUDIO_DIR = mkdtempSync(tmpdir() + path.sep);
 
 const openai = new OpenAI({
@@ -32,7 +46,10 @@ async function* getChatResponsesStream(
 ): AsyncGenerator<string, void, unknown> {
   const responseStream = await openai.chat.completions.create({
     model: OPENAI_MODEL,
-    messages: [{ role: "user", content: prompt }],
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
     stream: true,
   });
 
@@ -61,7 +78,9 @@ async function generateAndQueueSpeech(text: string) {
     {
       method: "POST",
     }
-  );
+  ).catch((err) => {
+    throw new Error(`POST ${VOICEVOX_API_ORIGIN}/audio_query failed: ${err}`);
+  });
   const audioQuery = await audioQueryResponse.json();
 
   const synthesisResponse = await fetch(
@@ -71,7 +90,9 @@ async function generateAndQueueSpeech(text: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(audioQuery),
     }
-  );
+  ).catch((err) => {
+    throw new Error(`POST ${VOICEVOX_API_ORIGIN}/synthesis failed: ${err}`);
+  });
 
   const buffer = await synthesisResponse
     .arrayBuffer()
@@ -85,7 +106,6 @@ async function generateAndQueueSpeech(text: string) {
   await writeFile(filePath, buffer);
 
   soundPlayQueue.add(async () => {
-    Clients.forEach((updateClient) => updateClient(text));
     return playAudioFile(text, filePath);
   });
 }
@@ -104,11 +124,8 @@ async function playAudioFile(text: string, filePath: string) {
 export async function streamChatAndSynthesize(prompt: string) {
   for await (const part of getChatResponsesStream(prompt)) {
     await generateAndQueueSpeech(part);
-    // appendCaption(part);
   }
 }
-
-export const Clients = new Set<(s: string) => void>();
 
 // streamChatAndSynthesize("こんにちは、元気ですか？ 400文字程度で。");
 
