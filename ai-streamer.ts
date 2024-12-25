@@ -188,7 +188,7 @@ async function* getChatResponsesStream(
       process.stderr.write("\r" + buffer);
     }
 
-    const parts = buffer.split(/(?<=[、。！？])/);
+    const parts = buffer.split(/(?<=[、。！？]+)/);
     buffer = parts.pop() || "";
     for (const part of parts) {
       yield part;
@@ -286,7 +286,7 @@ export async function startOBSCaptureIfRequired() {
       });
 
       await enqueueChat(
-        "あなたのゲーム画面です。80文字でコメントをどうぞ",
+        "あなたのゲーム画面です。40文字でコメントをどうぞ。負けた場合は80文字程度でどうぞ",
         { imageURL: resp.imageData } // "data:image/png;base64,..."
       );
     } catch (err) {
