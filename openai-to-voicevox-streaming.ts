@@ -3,9 +3,17 @@ import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
+import EventEmitter from "node:events";
 
 import { OpenAI } from "openai";
 import PQueue from "p-queue";
+
+type AIStreamerEventMap = {
+  updateCaption: [string];
+};
+export const Events = new EventEmitter<AIStreamerEventMap>({
+  captureRejections: true,
+});
 
 const VOICEVOX_API_ORIGIN =
   process.env["VOICEVOX_API_ORIGIN"] ?? "http://localhost:50021";
@@ -32,7 +40,7 @@ async function* getChatResponsesStream(
   for await (const chunk of responseStream) {
     buffer += chunk.choices[0].delta.content ?? "";
     process.stderr.write("\r" + buffer);
-    let parts = buffer.split(/(?<=[、。！？])/);
+    const parts = buffer.split(/(?<=[、。！？])/);
     buffer = parts.pop() || "";
     for (const part of parts) {
       yield part;
@@ -65,8 +73,9 @@ async function generateAndQueueSpeech(text: string) {
     }
   );
 
-  const arrayBuffer = await synthesisResponse.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const buffer = await synthesisResponse
+    .arrayBuffer()
+    .then((b) => Buffer.from(b));
 
   const filePath = path.join(
     TEMP_AUDIO_DIR,
@@ -77,11 +86,12 @@ async function generateAndQueueSpeech(text: string) {
 
   soundPlayQueue.add(async () => {
     Clients.forEach((updateClient) => updateClient(text));
-    return playAudioFile(filePath);
+    return playAudioFile(text, filePath);
   });
 }
 
-async function playAudioFile(filePath: string) {
+async function playAudioFile(text: string, filePath: string) {
+  Events.emit("updateCaption", text);
   console.log(`Playing ${filePath}`);
   return new Promise((resolve, reject) => {
     const child = spawn("afplay", [filePath]);

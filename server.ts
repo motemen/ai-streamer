@@ -5,7 +5,7 @@ import { streamSSE } from "hono/streaming";
 
 import {
   streamChatAndSynthesize,
-  Clients,
+  Events,
 } from "./openai-to-voicevox-streaming";
 
 const app = new Hono();
@@ -27,11 +27,12 @@ app.get("/api/stream", (c) => {
           id: Date.now().toString(),
         });
       };
-      Clients.add(sendCaption);
+
+      Events.on("updateCaption", sendCaption);
 
       stream.onAbort(() => {
         console.log("stream aborted");
-        Clients.delete(sendCaption);
+        Events.off("updateCaption", sendCaption);
         reject();
       });
     });
