@@ -8,7 +8,7 @@ import path, { dirname } from "node:path";
 
 import { OpenAI } from "openai";
 import PQueue from "p-queue";
-import { unknown, z } from "zod";
+import { z } from "zod";
 import OBSWebSocket from "obs-websocket-js";
 import createDebug from "debug";
 
@@ -30,8 +30,10 @@ const DEFAULT_PROMPT = `
 あなたはゲーム実況ストリーマーです。
 あなたは情緒豊かで、いつも視聴者に楽しい時間を提供します。
 これからゲームのプレイ状況を伝えるので、それに合わせたセリフを生成してください。
+
 また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
 <setAvatar default>
+
 avatarとして指定できるのは以下です。
 - default
 - 喜び
@@ -49,12 +51,14 @@ export const ConfigSchema = z.object({
       origin: z.string().default(DEFAULT_VOICEVOX_ORIGIN),
     })
     .optional(),
+
   openai: z
     .object({
       model: z.string().default(DEFAULT_OPENAI_MODEL),
       baseURL: z.string().optional(),
     })
     .optional(),
+
   obs: z
     .object({
       url: z.string().default(DEFAULT_OBS_URL),
@@ -62,7 +66,9 @@ export const ConfigSchema = z.object({
       sourceName: z.string(),
     })
     .optional(),
+
   prompt: z.string().default(DEFAULT_PROMPT),
+
   replace: z
     .array(
       z.object({
@@ -71,6 +77,7 @@ export const ConfigSchema = z.object({
       })
     )
     .default([]),
+
   avatarImageDir: z.string().default(DEFAULT_AVATAR_IMAGE_DIR),
 });
 
@@ -145,7 +152,7 @@ const taskQueue = new PQueue({ concurrency: 1 });
 
 async function* getChatResponsesStream(
   prompt: string,
-  base64ImageData?: string
+  imageURL?: string
 ): AsyncGenerator<string, void, unknown> {
   if (!openai) {
     openai = new OpenAI({
@@ -154,15 +161,16 @@ async function* getChatResponsesStream(
   }
 
   const responseStream = await openai.chat.completions.create({
+    temperature: 1.2,
     model: Config.openai?.model ?? DEFAULT_OPENAI_MODEL,
     messages: [
       { role: "system", content: Config.prompt },
-      base64ImageData
+      imageURL
         ? {
             role: "user",
             content: [
               { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: base64ImageData } },
+              { type: "image_url", image_url: { url: imageURL } },
             ],
           }
         : {
@@ -270,15 +278,20 @@ export async function startOBSCaptureIfRequired() {
   while (true) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const resp = await obs.call("GetSourceScreenshot", {
-      sourceName: Config.obs?.sourceName,
-      imageWidth: 480,
-      imageFormat: "png",
-    });
+    try {
+      const resp = await obs.call("GetSourceScreenshot", {
+        sourceName: Config.obs?.sourceName,
+        imageWidth: 480,
+        imageFormat: "png",
+      });
 
-    await enqueueChat(
-      "あなたのゲーム画面です。100文字でコメントをどうぞ",
-      { imageURL: resp.imageData } // "data:image/png;base64,..."
-    );
+      await enqueueChat(
+        "あなたのゲーム画面です。80文字でコメントをどうぞ",
+        { imageURL: resp.imageData } // "data:image/png;base64,..."
+      );
+    } catch (err) {
+      console.error("GetSourceScreenshot", err);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
   }
 }
