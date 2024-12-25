@@ -30,7 +30,7 @@ body {
 .shadow,
 .text {
   position: absolute;
-  bottom: 0;
+  bottom: 2%;
   width: 90%;
   display: flex;
   justify-content: center;

@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -7,13 +7,11 @@ import EventEmitter from "node:events";
 
 import { OpenAI } from "openai";
 import PQueue from "p-queue";
+import { FrontendCommand } from "./commands";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 
-type AIStreamerEventMap = {
-  updateCaption: [string];
-};
-export const Events = new EventEmitter<AIStreamerEventMap>({
-  captureRejections: true,
-});
+/*** Configuration ***/
 
 const VOICEVOX_API_ORIGIN =
   process.env["VOICEVOX_API_ORIGIN"] ?? "http://localhost:50021";
@@ -25,21 +23,44 @@ const SYSTEM_PROMPT = `
 あなたは情緒豊かで、いつも視聴者に楽しい時間を提供します。
 これからゲームのプレイ状況を伝えるので、それに合わせたセリフを生成してください。
 また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
-<avatar=default>
+<setAvatar default>
 avatarとして指定できるのは以下です。
 - default
-- 驚き
-- 笑顔
-- 勝利
+- 喜び
+- 当惑
+- 涙目
 - 焦り
+- ドヤ顔
 `.trim();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const AVATAR_IMAGE_DIR = path.join(__dirname, "avatars");
+
 const TEMP_AUDIO_DIR = mkdtempSync(tmpdir() + path.sep);
+
+type AIStreamerEventMap = {
+  frontendCommand: [FrontendCommand];
+};
+export const Events = new EventEmitter<AIStreamerEventMap>({
+  captureRejections: true,
+});
 
 const openai = new OpenAI({
   apiKey: process.env["OPENAI_API_KEY"],
   baseURL: process.env["OPENAI_API_BASE_URL"],
 });
+
+export async function getAvatarImage(
+  name: string
+): Promise<Buffer<ArrayBufferLike> | null> {
+  const filePath = path.join(AVATAR_IMAGE_DIR, name);
+  return readFile(filePath).catch((err) => {
+    console.warn(`Avatar image ${filePath} not found`, err);
+    return null;
+  });
+}
 
 async function* getChatResponsesStream(
   prompt: string
@@ -66,11 +87,11 @@ async function* getChatResponsesStream(
   yield buffer;
 }
 
-const soundPlayQueue = new PQueue({ concurrency: 1 });
+const taskQueue = new PQueue({ concurrency: 1 });
 
 let audioFileIndex = 0;
 
-async function generateAndQueueSpeech(text: string) {
+async function synthesizeAudio(text: string): Promise<string> {
   const audioQueryResponse = await fetch(
     `${VOICEVOX_API_ORIGIN}/audio_query?speaker=1&text=${encodeURIComponent(
       text
@@ -105,13 +126,11 @@ async function generateAndQueueSpeech(text: string) {
 
   await writeFile(filePath, buffer);
 
-  soundPlayQueue.add(async () => {
-    return playAudioFile(text, filePath);
-  });
+  return filePath;
 }
 
 async function playAudioFile(text: string, filePath: string) {
-  Events.emit("updateCaption", text);
+  // Events.emit("captionUpdated", text);
   console.log(`Playing ${filePath}`);
   return new Promise((resolve, reject) => {
     const child = spawn("afplay", [filePath]);
@@ -120,10 +139,45 @@ async function playAudioFile(text: string, filePath: string) {
   });
 }
 
+// parse "<command a1 a2>" to { "command": "setAvatar", args: ["a1", "a2"] }
+function parseCommand(text: string): FrontendCommand | null {
+  const match = text.trim().match(/<([^>\s]+)(?:\s+([^>]+))?>/);
+  if (!match) {
+    return null;
+  }
+
+  const [, command, args] = match;
+  if (command === "setAvatar") {
+    return { type: "setAvatar", avatar: args ?? "default" };
+  }
+
+  console.warn("Unknown command", command);
+
+  return null;
+}
+
 // Function to connect the streaming and speech synthesis
 export async function streamChatAndSynthesize(prompt: string) {
-  for await (const part of getChatResponsesStream(prompt)) {
-    await generateAndQueueSpeech(part);
+  for await (let text of getChatResponsesStream(prompt)) {
+    const commands: FrontendCommand[] = [];
+    text = text.replace(/\s*<[^>]+>\s*/g, (match) => {
+      const command = parseCommand(match);
+      if (command) {
+        commands.push(command);
+      }
+      return "";
+    });
+
+    commands.push({ type: "updateCaption", caption: text });
+
+    const filePath = await synthesizeAudio(text);
+    taskQueue.add(async () => {
+      for (const command of commands) {
+        Events.emit("frontendCommand", command);
+      }
+
+      return playAudioFile(text, filePath);
+    });
   }
 }
 
