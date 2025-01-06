@@ -32,7 +32,10 @@ app.get("/api/stream", (c) => {
     async (stream) => {
       return new Promise((_resolve, reject) => {
         const sendCommand = async (command: FrontendCommand) => {
-          debug("sendCommand", command);
+          debug("sendCommand", {
+            ...command,
+            ...("audioDataBase64" in command ? { audioDataBase64: "..." } : {}),
+          });
           await stream.writeSSE({
             data: JSON.stringify(command),
             event: command.type,
@@ -44,7 +47,7 @@ app.get("/api/stream", (c) => {
         stream.onAbort(() => {
           debug("stream aborted");
           Events.off("frontendCommand", sendCommand);
-          reject();
+          reject("stream aborted");
         });
       });
     },

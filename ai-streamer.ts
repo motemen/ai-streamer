@@ -1,6 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { mkdtempSync } from "node:fs";
-import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import EventEmitter from "node:events";
 import { fileURLToPath } from "node:url";
@@ -12,7 +11,12 @@ import { z } from "zod";
 import OBSWebSocket from "obs-websocket-js";
 import createDebug from "debug";
 
-import { FrontendCommand, UPDATE_CAPTION, SET_AVATAR } from "./commands";
+import {
+  FrontendCommand,
+  UPDATE_CAPTION,
+  SET_AVATAR,
+  PLAY_AUDIO,
+} from "./commands";
 
 const debug = createDebug("aistreamer");
 
@@ -245,11 +249,9 @@ async function synthesizeAudio(text: string): Promise<string> {
 async function playAudioFile(text: string, filePath: string) {
   debug(`Playing ${filePath}`);
 
-  return new Promise((resolve, reject) => {
-    const child = spawn("afplay", [filePath]);
-    child.on("exit", resolve);
-    child.on("error", reject);
-  });
+  const audioBuffer = await readFile(filePath);
+  const audioDataBase64 = audioBuffer.toString("base64");
+  Events.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
 }
 
 // parse "<command a1 a2>" to { "command": "setAvatar", args: ["a1", "a2"] }
