@@ -1,6 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import EventEmitter from "node:events";
 import { fileURLToPath } from "node:url";
 import path, { dirname } from "node:path";
@@ -94,8 +92,6 @@ export function configure(input: unknown) {
   debug("Loaded configuration: %O", Config);
 }
 
-const TEMP_AUDIO_DIR = mkdtempSync(tmpdir() + path.sep);
-
 type AIStreamerEventMap = {
   frontendCommand: [FrontendCommand];
 };
@@ -129,14 +125,14 @@ export async function enqueueChat(
 
     commands.push({ type: UPDATE_CAPTION, caption: text });
 
-    const filePath = await synthesizeAudio(text);
+    const audioBuffer = await synthesizeAudio(text);
     lastPromise = taskQueue
       .add(async () => {
         for (const command of commands) {
           Events.emit("frontendCommand", command);
         }
 
-        return playAudioFile(text, filePath);
+        return playAudio(text, audioBuffer);
       })
       .then(() => {});
   }
@@ -203,9 +199,7 @@ async function* getChatResponsesStream(
   yield buffer;
 }
 
-let audioFileIndex = 0;
-
-async function synthesizeAudio(text: string): Promise<string> {
+async function synthesizeAudio(text: string): Promise<ArrayBuffer> {
   for (const { from, to } of Config.replace) {
     text = text.replace(new RegExp(from, "g"), to);
   }
@@ -232,25 +226,13 @@ async function synthesizeAudio(text: string): Promise<string> {
     throw new Error(`POST ${voicevoxOrigin}/synthesis failed: ${err}`);
   });
 
-  const buffer = await synthesisResponse
-    .arrayBuffer()
-    .then((b) => Buffer.from(b));
-
-  const filePath = path.join(
-    TEMP_AUDIO_DIR,
-    "synth_" + (audioFileIndex++).toString().padStart(3, "0") + ".wav"
-  );
-
-  await writeFile(filePath, buffer);
-
-  return filePath;
+  return synthesisResponse.arrayBuffer();
 }
 
-async function playAudioFile(text: string, filePath: string) {
-  debug(`Playing ${filePath}`);
+async function playAudio(text: string, audioBuffer: ArrayBuffer) {
+  debug(`Playing audio buffer`);
 
-  const audioBuffer = await readFile(filePath);
-  const audioDataBase64 = audioBuffer.toString("base64");
+  const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
   Events.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
 }
 
