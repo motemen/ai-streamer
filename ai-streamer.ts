@@ -6,7 +6,6 @@ import path, { dirname } from "node:path";
 import { OpenAI } from "openai";
 import PQueue from "p-queue";
 import { z } from "zod";
-import OBSWebSocket from "obs-websocket-js";
 import createDebug from "debug";
 
 import {
@@ -264,40 +263,6 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
     return null;
   }
-
-  async startOBSCaptureIfRequired() {
-    if (!this.config.obs) {
-      return;
-    }
-
-    const obsConfig = this.config.obs;
-
-    const obs = new OBSWebSocket();
-    await obs.connect(obsConfig.url, obsConfig.password);
-
-    while (true) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, obsConfig.waitMilliseconds)
-      );
-
-      try {
-        const resp = await obs.call("GetSourceScreenshot", {
-          sourceName: obsConfig.sourceName,
-          imageWidth: 480,
-          imageFormat: "png",
-        });
-
-        await this.enqueueChat(
-          obsConfig.prompt,
-          { imageURL: resp.imageData } // "data:image/png;base64,..."
-        );
-      } catch (err) {
-        console.error("GetSourceScreenshot", err);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-    }
-  }
 }
 
 export const aiStreamer = new AIStreamer();
-export const { startOBSCaptureIfRequired } = aiStreamer;

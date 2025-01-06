@@ -6,7 +6,7 @@ import { streamSSE } from "hono/streaming";
 import { loadConfig } from "c12";
 import mkDebug from "debug";
 
-import { aiStreamer, startOBSCaptureIfRequired } from "./ai-streamer";
+import { aiStreamer } from "./ai-streamer";
 import { FrontendCommand } from "./commands";
 import { z } from "zod";
 
@@ -97,8 +97,6 @@ const { config } = await loadConfig({
 });
 
 aiStreamer.configure(config);
-
-startOBSCaptureIfRequired();
 
 serve({ fetch: app.fetch, port: 18881 }, (info) => {
   console.info(`Listening on http://localhost:${info.port}`);
