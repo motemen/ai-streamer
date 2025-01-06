@@ -13,8 +13,12 @@ import {
 function Caption({ text }: { text: string }) {
   return (
     <div className={styles.caption}>
-      <div className={styles.text}>{text}</div>
-      <div className={styles.shadow}>{text}</div>
+      <div className={styles.text} role="caption">
+        {text}
+      </div>
+      <div className={styles.shadow} role="none">
+        {text}
+      </div>
     </div>
   );
 }

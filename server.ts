@@ -20,9 +20,7 @@ const debug = mkDebug("aistreamer");
 
 const app = new Hono();
 
-if (process.env.NODE_ENV == "production") {
-  app.use("*", serveStatic({ root: "./dist" }));
-}
+app.use("*", serveStatic({ root: "./dist" }));
 
 app.get("/api/stream", (c) => {
   debug("start streaming");

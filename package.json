@@ -9,7 +9,8 @@
     "dev:client": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vite build && playwright test"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.49.1",
     "@types/debug": "^4.1.12",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.17",
