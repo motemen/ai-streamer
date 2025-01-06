@@ -6,13 +6,7 @@ import { streamSSE } from "hono/streaming";
 import { loadConfig } from "c12";
 import mkDebug from "debug";
 
-import {
-  enqueueChat,
-  Events,
-  getAvatarImage,
-  configure,
-  startOBSCaptureIfRequired,
-} from "./ai-streamer";
+import { aiStreamer, startOBSCaptureIfRequired } from "./ai-streamer";
 import { FrontendCommand } from "./commands";
 import { z } from "zod";
 
@@ -40,11 +34,11 @@ app.get("/api/stream", (c) => {
           });
         };
 
-        Events.on("frontendCommand", sendCommand);
+        aiStreamer.on("frontendCommand", sendCommand);
 
         stream.onAbort(() => {
           debug("stream aborted");
-          Events.off("frontendCommand", sendCommand);
+          aiStreamer.off("frontendCommand", sendCommand);
           reject("stream aborted");
         });
       });
@@ -74,13 +68,17 @@ app.post("/api/chat", async (c) => {
   }
 
   const { prompt, imageURL, preempt, direct } = data;
-  await enqueueChat(prompt, { imageURL, preempt, useDirectPrompt: direct });
+  await aiStreamer.enqueueChat(prompt, {
+    imageURL,
+    preempt,
+    useDirectPrompt: direct,
+  });
   return c.json({ message: "ok" });
 });
 
 app.get("/api/avatar/:name", async (c) => {
   const name = c.req.param("name");
-  const imageData = await getAvatarImage(name);
+  const imageData = await aiStreamer.getAvatarImage(name);
   if (!imageData) {
     return c.notFound();
   }
@@ -98,7 +96,7 @@ const { config } = await loadConfig({
   giget: false,
 });
 
-configure(config);
+aiStreamer.configure(config);
 
 startOBSCaptureIfRequired();
 
