@@ -64,6 +64,8 @@ export const ConfigSchema = z.object({
       url: z.string().default(DEFAULT_OBS_URL),
       password: z.string().optional(),
       sourceName: z.string(),
+      prompt: z.string(),
+      waitMilliseconds: z.number().default(1000),
     })
     .optional(),
 
@@ -272,21 +274,25 @@ export async function startOBSCaptureIfRequired() {
     return;
   }
 
+  const obsConfig = Config.obs;
+
   const obs = new OBSWebSocket();
-  await obs.connect(Config.obs?.url, Config.obs?.password);
+  await obs.connect(obsConfig.url, obsConfig.password);
 
   while (true) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) =>
+      setTimeout(resolve, obsConfig.waitMilliseconds)
+    );
 
     try {
       const resp = await obs.call("GetSourceScreenshot", {
-        sourceName: Config.obs?.sourceName,
+        sourceName: obsConfig.sourceName,
         imageWidth: 480,
         imageFormat: "png",
       });
 
       await enqueueChat(
-        "あなたのゲーム画面です。40文字でコメントをどうぞ。負けた場合は80文字程度でどうぞ",
+        obsConfig.prompt,
         { imageURL: resp.imageData } // "data:image/png;base64,..."
       );
     } catch (err) {

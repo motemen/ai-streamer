@@ -14,6 +14,7 @@ import {
   startOBSCaptureIfRequired,
 } from "./ai-streamer";
 import { FrontendCommand } from "./commands";
+import { z } from "zod";
 
 const debug = mkDebug("aistreamer");
 
@@ -54,10 +55,24 @@ app.get("/api/stream", (c) => {
   );
 });
 
+const APIChatPayloadSchema = z.object({
+  prompt: z.string().nonempty(),
+  imageURL: z.string().optional(),
+  preempt: z.boolean().optional(),
+});
+
 app.post("/api/chat", async (c) => {
   const body = await c.req.json();
-  const prompt = body["prompt"];
-  await enqueueChat(prompt.toString(), {});
+  const { success, data, error } = APIChatPayloadSchema.safeParse(body);
+  if (!success) {
+    return c.json(
+      { error: "Invalid payload", details: error },
+      { status: 400 }
+    );
+  }
+
+  const { prompt, imageURL, preempt } = data;
+  await enqueueChat(prompt, { imageURL, preempt });
   return c.json({ message: "ok" });
 });
 
