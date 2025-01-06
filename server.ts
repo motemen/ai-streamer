@@ -62,6 +62,7 @@ const APIChatPayloadSchema = z.object({
   prompt: z.string().nonempty(),
   imageURL: z.string().optional(),
   preempt: z.boolean().optional(),
+  direct: z.boolean().optional(),
 });
 
 app.post("/api/chat", async (c) => {
@@ -74,8 +75,8 @@ app.post("/api/chat", async (c) => {
     );
   }
 
-  const { prompt, imageURL, preempt } = data;
-  await enqueueChat(prompt, { imageURL, preempt });
+  const { prompt, imageURL, preempt, direct } = data;
+  await enqueueChat(prompt, { imageURL, preempt, useDirectPrompt: direct });
   return c.json({ message: "ok" });
 });
 

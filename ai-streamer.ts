@@ -47,6 +47,8 @@ avatarとして指定できるのは以下です。
 
 const DEFAULT_OBS_URL = "ws://127.0.0.1:4455";
 
+const PUNCTUATION_REGEX = /(?<=[、。！？]+)/;
+
 export const ConfigSchema = z.object({
   voicevox: z
     .object({
@@ -104,7 +106,11 @@ let openai: OpenAI;
 
 export async function enqueueChat(
   prompt: string,
-  { imageURL, preempt = true }: { imageURL?: string; preempt?: boolean }
+  {
+    imageURL,
+    preempt = true,
+    useDirectPrompt = false,
+  }: { imageURL?: string; preempt?: boolean; useDirectPrompt?: boolean }
 ): Promise<void> {
   if (preempt) {
     taskQueue.clear();
@@ -112,7 +118,11 @@ export async function enqueueChat(
 
   let lastPromise = Promise.resolve();
 
-  for await (let text of getChatResponsesStream(prompt, imageURL)) {
+  const textChunks = useDirectPrompt
+    ? prompt.split(PUNCTUATION_REGEX)
+    : getChatResponsesStream(prompt, imageURL);
+
+  for await (let text of textChunks) {
     const commands: FrontendCommand[] = [];
 
     text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
@@ -190,7 +200,7 @@ async function* getChatResponsesStream(
       process.stderr.write("\r" + buffer);
     }
 
-    const parts = buffer.split(/(?<=[、。！？]+)/);
+    const parts = buffer.split(PUNCTUATION_REGEX);
     buffer = parts.pop() || "";
     for (const part of parts) {
       yield part;
