@@ -54,15 +54,17 @@ function App() {
     };
 
     eventSource.addEventListener(UPDATE_CAPTION, (event) => {
-      console.debug("UPDATE_CAPTION", event.data);
+      console.log("UPDATE_CAPTION", event.data);
       const data = JSON.parse(event.data) as unknown as UpdateCaptionCommand;
       queue.add(() => {
+        console.log("setCaption", data.caption);
         setCaption(data.caption);
 
         if (clearCaptionTimer) {
           clearTimeout(clearCaptionTimer);
         }
         clearCaptionTimer = setTimeout(() => {
+          console.log("clearCaption");
           setCaption("");
         }, 3000);
       });
@@ -75,7 +77,7 @@ function App() {
     });
 
     eventSource.addEventListener(PLAY_AUDIO, (event) => {
-      console.debug("PLAY_AUDIO", event.data);
+      console.log("PLAY_AUDIO");
       const data = JSON.parse(event.data) as unknown as PlayAudioCommand;
       queue.add(() => playAudio(data.audioDataBase64));
     });
@@ -94,6 +96,11 @@ function App() {
     // --autoplay-policy=no-user-gesture-required が必要
     // <https://developer.chrome.com/blog/autoplay?hl=ja>
     const audioContext = new AudioContext();
+    if (audioContext.state === "suspended") {
+      console.error("--autoplay-policy=no-user-gesture-required required");
+      // TODO: なんか表示する
+    }
+
     const audioData = Uint8Array.from(atob(audioDataBase64), (c) =>
       c.charCodeAt(0)
     ).buffer;

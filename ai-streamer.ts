@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import path, { dirname } from "node:path";
 
 import { OpenAI } from "openai";
-import PQueue from "p-queue";
 import { z } from "zod";
 import createDebug from "debug";
 
@@ -93,7 +92,6 @@ type AIStreamerEventMap = {
 class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   private config: z.infer<typeof ConfigSchema>;
   private openai: OpenAI | null = null;
-  private taskQueue = new PQueue({ concurrency: 1 });
 
   constructor() {
     super({ captureRejections: true });
@@ -114,10 +112,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }: { imageURL?: string; preempt?: boolean; useDirectPrompt?: boolean }
   ): Promise<void> {
     if (preempt) {
-      this.taskQueue.clear();
+      // TODO: emit a preempt event
     }
-
-    let lastPromise = Promise.resolve();
 
     const textChunks = useDirectPrompt
       ? prompt.split(PUNCTUATION_REGEX)
@@ -137,18 +133,14 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       commands.push({ type: UPDATE_CAPTION, caption: text });
 
       const audioBuffer = await this.synthesizeAudio(text);
-      lastPromise = this.taskQueue
-        .add(async () => {
-          for (const command of commands) {
-            this.emit("frontendCommand", command);
-          }
 
-          return this.playAudio(text, audioBuffer);
-        })
-        .then(() => {});
+      for (const command of commands) {
+        this.emit("frontendCommand", command);
+      }
+
+      const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
+      this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
     }
-
-    return lastPromise;
   }
 
   async getAvatarImage(name: string): Promise<Buffer<ArrayBufferLike> | null> {
