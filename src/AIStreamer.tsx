@@ -54,13 +54,15 @@ queue.on("idle", () => {
   }
   if (idleTimeout) {
     idleTimer = setTimeout(() => {
-      console.debug("idle");
-      fetch("/api/idle", { method: "POST" });
+      if (queue.size === 0 && queue.pending === 0) {
+        console.debug("idle");
+        void fetch("/api/idle", { method: "POST" });
+      }
     }, idleTimeout);
   }
 });
 
-queue.on("active", () => {
+queue.on("next", () => {
   if (idleTimer) {
     clearTimeout(idleTimer);
     idleTimer = null;
