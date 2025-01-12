@@ -9,4 +9,4 @@ declare const styles:
   & Readonly<{ "avatarImage": string }>
 ;
 export default styles;
-//# sourceMappingURL=./App.module.css.d.ts.map
+//# sourceMappingURL=./AIStreamer.module.css.d.ts.map

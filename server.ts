@@ -91,6 +91,10 @@ app.get("/api/avatar/:name", async (c) => {
   });
 });
 
+app.post("/api/idle", async () => {
+  await aiStreamer.enqueueChat("軽く雑談してください", {});
+});
+
 const { config } = await loadConfig({
   configFile: process.argv[2],
   giget: false,

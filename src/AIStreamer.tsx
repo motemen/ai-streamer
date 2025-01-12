@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PQueue from "p-queue";
-import styles from "./App.module.css";
+import styles from "./AIStreamer.module.css";
 import {
   UPDATE_CAPTION,
   SET_AVATAR,
@@ -40,7 +40,28 @@ function Avatar({ name = "default" }: { name: string }) {
 
 const queue = new PQueue({ concurrency: 1 });
 
-function App() {
+let idleTimer: NodeJS.Timeout | null = null;
+
+// ヒマになったらサーバ側に通知する
+queue.on("idle", () => {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  idleTimer = setTimeout(() => {
+    console.debug("idle");
+    fetch("/api/idle", { method: "POST" });
+  }, 3000);
+});
+
+queue.on("active", () => {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+});
+
+function AIStreamer() {
   const [caption, setCaption] = useState("");
   const [avatar, setAvatar] = useState("default");
 
@@ -134,4 +155,4 @@ function App() {
   );
 }
 
-export default App;
+export default AIStreamer;

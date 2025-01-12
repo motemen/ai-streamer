@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vite build && playwright test"
+    "test": "vite build && playwright test",
+    "generate": "hcm './src/**/*.module.css'"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
