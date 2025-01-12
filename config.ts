@@ -42,6 +42,7 @@ export const ConfigSchema = z.object({
     .optional(),
 
   prompt: z.string().default(DEFAULT_PROMPT),
+  maxHistory: z.number().default(10),
 
   idle: z
     .object({

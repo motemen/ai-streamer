@@ -3,6 +3,7 @@ import EventEmitter from "node:events";
 import path from "node:path";
 
 import { OpenAI } from "openai";
+
 import { z } from "zod";
 import createDebug from "debug";
 
@@ -20,6 +21,11 @@ import {
   DEFAULT_VOICEVOX_ORIGIN,
 } from "./config";
 
+import {
+  ChatCompletionMessageParam,
+  ChatCompletionContentPartImage,
+} from "openai/resources/index";
+
 const debug = createDebug("aistreamer");
 
 const PUNCTUATION_REGEX = /(?<=[、。！？]+)/;
@@ -31,6 +37,7 @@ type AIStreamerEventMap = {
 class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   config: z.infer<typeof ConfigSchema>;
   private openai: OpenAI | null = null;
+  private history: string[] = [];
 
   constructor() {
     super({ captureRejections: true });
@@ -104,37 +111,51 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     imageURL?: string
   ): AsyncGenerator<string, void, unknown> {
     if (!this.openai) {
+      const baseURL = this.config.openai?.baseURL;
       this.openai = new OpenAI({
-        ...(this.config.openai?.baseURL
-          ? { baseURL: this.config.openai.baseURL }
-          : {}),
+        ...(baseURL ? { baseURL } : {}),
       });
     }
+
+    const messages: ChatCompletionMessageParam[] = [
+      { role: "system", content: this.config.prompt },
+
+      ...this.history.slice(-this.config.maxHistory).map(
+        (content): ChatCompletionMessageParam => ({
+          role: "assistant",
+          content,
+        })
+      ),
+
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          ...(imageURL
+            ? [
+                {
+                  type: "image_url",
+                  image_url: { url: imageURL },
+                } satisfies ChatCompletionContentPartImage,
+              ]
+            : []),
+        ],
+      },
+    ];
 
     const responseStream = await this.openai.chat.completions.create({
       temperature: 1.2,
       model: this.config.openai?.model ?? DEFAULT_OPENAI_MODEL,
-      messages: [
-        { role: "system", content: this.config.prompt },
-        imageURL
-          ? {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: imageURL } },
-              ],
-            }
-          : {
-              role: "user",
-              content: [{ type: "text", text: prompt }],
-            },
-      ],
+      messages,
       stream: true,
     });
 
     let buffer = "";
+    let totalBuffer = "";
     for await (const chunk of responseStream) {
       buffer += chunk.choices[0].delta.content ?? "";
+      totalBuffer += chunk.choices[0].delta.content ?? "";
+
       if (debug.enabled) {
         process.stderr.write("\r" + buffer);
       }
@@ -146,6 +167,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       }
     }
     yield buffer;
+
+    this.history.push(totalBuffer);
   }
 
   private async synthesizeAudio(text: string): Promise<ArrayBuffer> {
