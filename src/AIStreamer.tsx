@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PQueue from "p-queue";
+
 import styles from "./AIStreamer.module.css";
 import {
   UPDATE_CAPTION,
@@ -9,6 +10,8 @@ import {
   SetAvatarCommand,
   PlayAudioCommand,
   CLEAR_QUEUE,
+  CONFIGURE,
+  ConfigureCommand,
 } from "../commands";
 
 function Caption({ text }: { text: string }) {
@@ -41,6 +44,7 @@ function Avatar({ name = "default" }: { name: string }) {
 const queue = new PQueue({ concurrency: 1 });
 
 let idleTimer: NodeJS.Timeout | null = null;
+let idleTimeout = 0;
 
 // ヒマになったらサーバ側に通知する
 queue.on("idle", () => {
@@ -48,10 +52,12 @@ queue.on("idle", () => {
     clearTimeout(idleTimer);
     idleTimer = null;
   }
-  idleTimer = setTimeout(() => {
-    console.debug("idle");
-    fetch("/api/idle", { method: "POST" });
-  }, 3000);
+  if (idleTimeout) {
+    idleTimer = setTimeout(() => {
+      console.debug("idle");
+      fetch("/api/idle", { method: "POST" });
+    }, idleTimeout);
+  }
 });
 
 queue.on("active", () => {
@@ -74,6 +80,12 @@ function AIStreamer() {
     eventSource.onopen = () => {
       console.debug("EventSource opened");
     };
+
+    eventSource.addEventListener(CONFIGURE, (event) => {
+      console.debug("CONFIGURE", event.data);
+      const data = JSON.parse(event.data) as unknown as ConfigureCommand;
+      idleTimeout = data.config.idle?.timeout ?? 0;
+    });
 
     eventSource.addEventListener(UPDATE_CAPTION, (event) => {
       console.log("UPDATE_CAPTION", event.data);

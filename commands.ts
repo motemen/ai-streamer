@@ -1,7 +1,15 @@
+import { Config } from "./config";
+
+export const CONFIGURE = "CONFIGURE";
 export const UPDATE_CAPTION = "UPDATE_CAPTION";
 export const SET_AVATAR = "SET_AVATAR";
 export const PLAY_AUDIO = "PLAY_AUDIO";
 export const CLEAR_QUEUE = "CLEAR_QUEUE";
+
+export type ConfigureCommand = {
+  type: typeof CONFIGURE;
+  config: Config;
+};
 
 export type UpdateCaptionCommand = {
   type: typeof UPDATE_CAPTION;
@@ -23,6 +31,7 @@ export type ClearQueueCommand = {
 };
 
 export type FrontendCommand =
+  | ConfigureCommand
   | UpdateCaptionCommand
   | SetAvatarCommand
   | PlayAudioCommand

@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import EventEmitter from "node:events";
-import { fileURLToPath } from "node:url";
-import path, { dirname } from "node:path";
+import path from "node:path";
 
 import { OpenAI } from "openai";
 import { z } from "zod";
@@ -15,71 +14,22 @@ import {
   CLEAR_QUEUE,
 } from "./commands";
 
+import {
+  ConfigSchema,
+  DEFAULT_OPENAI_MODEL,
+  DEFAULT_VOICEVOX_ORIGIN,
+} from "./config";
+
 const debug = createDebug("aistreamer");
 
-/*** Configuration ***/
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const DEFAULT_VOICEVOX_ORIGIN = "http://localhost:50021";
-const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
-
-const DEFAULT_AVATAR_IMAGE_DIR = path.join(__dirname, "avatars");
-
-const DEFAULT_PROMPT = `
-あなたはゲーム実況ストリーマーです。
-あなたは情緒豊かで、いつも視聴者に楽しい時間を提供します。
-これからゲームのプレイ状況を伝えるので、それに合わせたセリフを生成してください。
-
-また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
-<setAvatar default>
-
-avatarとして指定できるのは以下です。
-- default
-- 喜び
-- 当惑
-- 涙目
-- 焦り
-- ドヤ顔
-`.trim();
-
 const PUNCTUATION_REGEX = /(?<=[、。！？]+)/;
-
-export const ConfigSchema = z.object({
-  voicevox: z
-    .object({
-      origin: z.string().default(DEFAULT_VOICEVOX_ORIGIN),
-    })
-    .optional(),
-
-  openai: z
-    .object({
-      model: z.string().default(DEFAULT_OPENAI_MODEL),
-      baseURL: z.string().optional(),
-    })
-    .optional(),
-
-  prompt: z.string().default(DEFAULT_PROMPT),
-
-  replace: z
-    .array(
-      z.object({
-        from: z.string(),
-        to: z.string(),
-      })
-    )
-    .default([]),
-
-  avatarImageDir: z.string().default(DEFAULT_AVATAR_IMAGE_DIR),
-});
 
 type AIStreamerEventMap = {
   frontendCommand: [FrontendCommand];
 };
 
 class AIStreamer extends EventEmitter<AIStreamerEventMap> {
-  private config: z.infer<typeof ConfigSchema>;
+  config: z.infer<typeof ConfigSchema>;
   private openai: OpenAI | null = null;
 
   constructor() {
@@ -132,8 +82,17 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
   }
 
+  // 雑談するAPI
+  async doIdleChat() {
+    if (!this.config.idle?.prompt) {
+      return;
+    }
+
+    await this.enqueueChat(this.config.idle?.prompt, {});
+  }
+
   async getAvatarImage(name: string): Promise<Buffer<ArrayBufferLike> | null> {
-    const filePath = path.join(DEFAULT_AVATAR_IMAGE_DIR, name);
+    const filePath = path.join(this.config.avatarImageDir, name);
     return readFile(filePath).catch((err) => {
       console.warn(`Avatar image ${filePath} not found`, err);
       return null;

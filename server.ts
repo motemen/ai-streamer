@@ -7,7 +7,7 @@ import { loadConfig } from "c12";
 import createDebug from "debug";
 
 import { aiStreamer } from "./ai-streamer";
-import { FrontendCommand } from "./commands";
+import { ConfigureCommand, FrontendCommand } from "./commands";
 import { z } from "zod";
 
 const debug = createDebug("aistreamer");
@@ -33,6 +33,13 @@ app.get("/api/stream", (c) => {
             event: command.type,
           });
         };
+
+        // Send ConfigureCommand on client connection
+        const configureCommand: ConfigureCommand = {
+          type: "CONFIGURE",
+          config: aiStreamer.config,
+        };
+        sendCommand(configureCommand);
 
         aiStreamer.on("frontendCommand", sendCommand);
 
@@ -91,8 +98,10 @@ app.get("/api/avatar/:name", async (c) => {
   });
 });
 
-app.post("/api/idle", async () => {
-  await aiStreamer.enqueueChat("軽く雑談してください", {});
+// XXX: 雑談のタイミングはクライアント側でコントロールしているが、クライアントが複数あると困る
+app.post("/api/idle", async (c) => {
+  await aiStreamer.doIdleChat();
+  return c.json({ message: "ok" });
 });
 
 const { config } = await loadConfig({
