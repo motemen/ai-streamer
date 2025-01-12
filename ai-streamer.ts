@@ -12,6 +12,7 @@ import {
   UPDATE_CAPTION,
   SET_AVATAR,
   PLAY_AUDIO,
+  CLEAR_QUEUE,
 } from "./commands";
 
 const debug = createDebug("aistreamer");
@@ -95,12 +96,12 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     prompt: string,
     {
       imageURL,
-      preempt = true,
+      preempt = false,
       useDirectPrompt = false,
     }: { imageURL?: string; preempt?: boolean; useDirectPrompt?: boolean }
   ): Promise<void> {
     if (preempt) {
-      // TODO: emit a preempt event
+      this.emit("frontendCommand", { type: CLEAR_QUEUE });
     }
 
     const textChunks = useDirectPrompt

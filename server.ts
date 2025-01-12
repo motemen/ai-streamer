@@ -4,13 +4,13 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { streamSSE } from "hono/streaming";
 
 import { loadConfig } from "c12";
-import mkDebug from "debug";
+import createDebug from "debug";
 
 import { aiStreamer } from "./ai-streamer";
 import { FrontendCommand } from "./commands";
 import { z } from "zod";
 
-const debug = mkDebug("aistreamer");
+const debug = createDebug("aistreamer");
 
 const app = new Hono();
 

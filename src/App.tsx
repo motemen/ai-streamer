@@ -8,6 +8,7 @@ import {
   UpdateCaptionCommand,
   SetAvatarCommand,
   PlayAudioCommand,
+  CLEAR_QUEUE,
 } from "../commands";
 
 function Caption({ text }: { text: string }) {
@@ -80,6 +81,11 @@ function App() {
       console.log("PLAY_AUDIO");
       const data = JSON.parse(event.data) as unknown as PlayAudioCommand;
       queue.add(() => playAudio(data.audioDataBase64));
+    });
+
+    eventSource.addEventListener(CLEAR_QUEUE, () => {
+      console.log("CLEAR_QUEUE");
+      queue.clear();
     });
 
     eventSource.onerror = (err) => {

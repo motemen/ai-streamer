@@ -1,6 +1,7 @@
-export const UPDATE_CAPTION = "updateCaption";
-export const SET_AVATAR = "setAvatar";
-export const PLAY_AUDIO = "playAudio";
+export const UPDATE_CAPTION = "UPDATE_CAPTION";
+export const SET_AVATAR = "SET_AVATAR";
+export const PLAY_AUDIO = "PLAY_AUDIO";
+export const CLEAR_QUEUE = "CLEAR_QUEUE";
 
 export type UpdateCaptionCommand = {
   type: typeof UPDATE_CAPTION;
@@ -17,7 +18,12 @@ export type PlayAudioCommand = {
   audioDataBase64: string;
 };
 
+export type ClearQueueCommand = {
+  type: typeof CLEAR_QUEUE;
+};
+
 export type FrontendCommand =
   | UpdateCaptionCommand
   | SetAvatarCommand
-  | PlayAudioCommand;
+  | PlayAudioCommand
+  | ClearQueueCommand;
