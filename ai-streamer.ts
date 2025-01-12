@@ -43,8 +43,6 @@ avatarとして指定できるのは以下です。
 - ドヤ顔
 `.trim();
 
-const DEFAULT_OBS_URL = "ws://127.0.0.1:4455";
-
 const PUNCTUATION_REGEX = /(?<=[、。！？]+)/;
 
 export const ConfigSchema = z.object({
@@ -58,16 +56,6 @@ export const ConfigSchema = z.object({
     .object({
       model: z.string().default(DEFAULT_OPENAI_MODEL),
       baseURL: z.string().optional(),
-    })
-    .optional(),
-
-  obs: z
-    .object({
-      url: z.string().default(DEFAULT_OBS_URL),
-      password: z.string().optional(),
-      sourceName: z.string(),
-      prompt: z.string(),
-      waitMilliseconds: z.number().default(1000),
     })
     .optional(),
 
