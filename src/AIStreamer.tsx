@@ -48,6 +48,8 @@ let idleTimeout = 0;
 
 // ヒマになったらサーバ側に通知する
 queue.on("idle", () => {
+  console.debug("queue idle");
+
   if (idleTimer) {
     clearTimeout(idleTimer);
     idleTimer = null;
@@ -63,7 +65,9 @@ queue.on("idle", () => {
 });
 
 queue.on("next", () => {
-  if (idleTimer) {
+  console.debug("queue next");
+
+  if (idleTimer && queue.size > 0) {
     clearTimeout(idleTimer);
     idleTimer = null;
   }
