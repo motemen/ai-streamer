@@ -46,7 +46,22 @@ const queue = new PQueue({ concurrency: 1 });
 let idleTimer: NodeJS.Timeout | null = null;
 let idleTimeout = 0;
 
+queue.on("error", (err) => {
+  console.error("queue error", err);
+});
+
 // ヒマになったらサーバ側に通知する
+function notifyIdleLater() {
+  if (idleTimeout) {
+    idleTimer = setTimeout(() => {
+      if (queue.size === 0 && queue.pending === 0) {
+        console.debug("idle");
+        queue.add(() => fetch("/api/idle", { method: "POST" }));
+      }
+    }, idleTimeout);
+  }
+}
+
 queue.on("idle", () => {
   console.debug("queue idle");
 
@@ -54,24 +69,37 @@ queue.on("idle", () => {
     clearTimeout(idleTimer);
     idleTimer = null;
   }
-  if (idleTimeout) {
-    idleTimer = setTimeout(() => {
-      if (queue.size === 0 && queue.pending === 0) {
-        console.debug("idle");
-        void fetch("/api/idle", { method: "POST" });
-      }
-    }, idleTimeout);
-  }
+
+  notifyIdleLater();
 });
 
 queue.on("next", () => {
   console.debug("queue next");
 
-  if (idleTimer && queue.size > 0) {
+  if (idleTimer) {
     clearTimeout(idleTimer);
     idleTimer = null;
   }
+
+  if (queue.size === 0) {
+    notifyIdleLater();
+  }
 });
+
+let audioContext: AudioContext | null = null;
+
+function createAudioContext(): AudioContext {
+  if (audioContext) {
+    return audioContext;
+  }
+
+  audioContext = new AudioContext();
+  if (audioContext.state === "suspended") {
+    console.error("--autoplay-policy=no-user-gesture-required required");
+    throw new Error("AudioContext is suspended");
+  }
+  return audioContext;
+}
 
 function AIStreamer() {
   const [caption, setCaption] = useState("");
@@ -140,12 +168,7 @@ function AIStreamer() {
   const playAudio = async (audioDataBase64: string) => {
     // --autoplay-policy=no-user-gesture-required が必要
     // <https://developer.chrome.com/blog/autoplay?hl=ja>
-    const audioContext = new AudioContext();
-    if (audioContext.state === "suspended") {
-      console.error("--autoplay-policy=no-user-gesture-required required");
-      // TODO: なんか表示する
-    }
-
+    const audioContext = createAudioContext();
     const audioData = Uint8Array.from(atob(audioDataBase64), (c) =>
       c.charCodeAt(0)
     ).buffer;
