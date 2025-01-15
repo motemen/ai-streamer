@@ -57,16 +57,16 @@ app.get("/api/stream", (c) => {
   );
 });
 
-const APIChatPayloadSchema = z.object({
+const ChatPayloadSchema = z.object({
   prompt: z.string().nonempty(),
   imageURL: z.string().optional(),
-  preempt: z.boolean().optional(),
+  interrupt: z.boolean().optional(),
   direct: z.boolean().optional(),
 });
 
 app.post("/api/chat", async (c) => {
   const body = await c.req.json();
-  const { success, data, error } = APIChatPayloadSchema.safeParse(body);
+  const { success, data, error } = ChatPayloadSchema.safeParse(body);
   if (!success) {
     return c.json(
       { error: "Invalid payload", details: error },
@@ -74,12 +74,38 @@ app.post("/api/chat", async (c) => {
     );
   }
 
-  const { prompt, imageURL, preempt, direct } = data;
-  await aiStreamer.sendTalkLineFromPrompt(prompt, {
+  const { prompt, imageURL, interrupt, direct } = data;
+  await aiStreamer.dispatchSpeechLine(prompt, {
     imageURL,
-    preempt,
-    useDirectPrompt: direct,
+    interrupt,
+    direct,
   });
+  return c.json({ message: "ok" });
+});
+
+const IdlePayloadSchema = z.object({
+  prompt: z.string().optional(),
+  direct: z.boolean().optional(),
+});
+
+// XXX: 雑談のタイミングはクライアント側でコントロールしているが、クライアントが複数あると困る
+app.post("/api/idle", async (c) => {
+  const body = await c.req.json();
+  const { success, data, error } = IdlePayloadSchema.safeParse(body);
+  if (!success) {
+    return c.json(
+      { error: "Invalid payload", details: error },
+      { status: 400 }
+    );
+  }
+
+  const { prompt, direct } = data;
+  const idlePrompt = prompt ?? aiStreamer.config.idle?.prompt;
+  if (!idlePrompt) {
+    return c.json({ error: "No idle prompt configured" }, { status: 400 });
+  }
+
+  await aiStreamer.dispatchSpeechLine(idlePrompt, { direct });
   return c.json({ message: "ok" });
 });
 
@@ -96,12 +122,6 @@ app.get("/api/avatar/:name", async (c) => {
       Expires: new Date(Date.now() + 60 * 60 * 1000).toUTCString(),
     },
   });
-});
-
-// XXX: 雑談のタイミングはクライアント側でコントロールしているが、クライアントが複数あると困る
-app.post("/api/idle", async (c) => {
-  await aiStreamer.doIdleChat();
-  return c.json({ message: "ok" });
 });
 
 const { config } = await loadConfig({

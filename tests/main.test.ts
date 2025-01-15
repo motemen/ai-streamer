@@ -10,17 +10,17 @@ async function requestChatAPI({
   baseURL,
   prompt,
   direct = false,
-  preempt = false,
+  interrupt = false,
 }: {
   baseURL?: string;
   prompt: string;
   direct?: boolean;
-  preempt?: boolean;
+  interrupt?: boolean;
 }) {
   return fetch(new URL("/api/chat", baseURL), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, direct, preempt }),
+    body: JSON.stringify({ prompt, direct, interrupt }),
   });
 }
 
@@ -70,7 +70,7 @@ test("長い台詞の読み上げ中につぎの台詞が来ても混ざらな�
     baseURL,
     prompt: interruptMessage,
     direct: true,
-    preempt: true,
+    interrupt: true,
   });
 
   await expect(page.getByRole("caption")).toContainText(interruptMessage);

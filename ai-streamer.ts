@@ -62,15 +62,15 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
   }
 
-  async sendTalkLineFromPrompt(
+  async dispatchSpeechLine(
     prompt: string,
     {
       imageURL,
-      preempt = false,
-      useDirectPrompt = false,
-    }: { imageURL?: string; preempt?: boolean; useDirectPrompt?: boolean }
+      interrupt,
+      direct,
+    }: { imageURL?: string; interrupt?: boolean; direct?: boolean }
   ): Promise<void> {
-    if (preempt) {
+    if (interrupt) {
       this.cancelCurrentTask();
       this.queue.clear();
       this.emit("frontendCommand", { type: CLEAR_QUEUE });
@@ -81,7 +81,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       this.currentAbortController = abortController;
 
       try {
-        const textChunks = useDirectPrompt
+        const textChunks = direct
           ? prompt.split(PUNCTUATION_REGEX)
           : this.generateTalkText(prompt, imageURL, {
               signal: abortController.signal,
@@ -121,16 +121,6 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         }
       }
     });
-  }
-
-  // 雑談するAPI
-  // TODO: prompt?: string を受け取る
-  async doIdleChat() {
-    if (!this.config.idle?.prompt) {
-      return;
-    }
-
-    await this.sendTalkLineFromPrompt(this.config.idle?.prompt, {});
   }
 
   async getAvatarImage(name: string): Promise<Buffer | null> {
