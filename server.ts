@@ -75,7 +75,7 @@ app.post("/api/chat", async (c) => {
   }
 
   const { prompt, imageURL, preempt, direct } = data;
-  await aiStreamer.enqueueChat(prompt, {
+  await aiStreamer.sendTalkLineFromPrompt(prompt, {
     imageURL,
     preempt,
     useDirectPrompt: direct,

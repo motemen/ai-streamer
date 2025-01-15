@@ -1,6 +1,7 @@
 import { Config } from "./config";
 
 export const CONFIGURE = "CONFIGURE";
+// TODO: UPDATE_CAPTIONとPLAY_AUDIOは合体させる
 export const UPDATE_CAPTION = "UPDATE_CAPTION";
 export const SET_AVATAR = "SET_AVATAR";
 export const PLAY_AUDIO = "PLAY_AUDIO";

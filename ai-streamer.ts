@@ -62,7 +62,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
   }
 
-  async enqueueChat(
+  async sendTalkLineFromPrompt(
     prompt: string,
     {
       imageURL,
@@ -83,11 +83,9 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       try {
         const textChunks = useDirectPrompt
           ? prompt.split(PUNCTUATION_REGEX)
-          : this.getChatResponsesStream(
-              prompt,
-              imageURL,
-              abortController.signal
-            );
+          : this.generateTalkText(prompt, imageURL, {
+              signal: abortController.signal,
+            });
 
         for await (let text of textChunks) {
           if (abortController.signal.aborted) {
@@ -106,10 +104,9 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
           commands.push({ type: UPDATE_CAPTION, caption: text });
 
-          const audioBuffer = await this.synthesizeAudio(
-            text,
-            abortController.signal
-          );
+          const audioBuffer = await this.synthesizeAudio(text, {
+            signal: abortController.signal,
+          });
 
           for (const command of commands) {
             this.emit("frontendCommand", command);
@@ -127,12 +124,13 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   }
 
   // 雑談するAPI
+  // TODO: prompt?: string を受け取る
   async doIdleChat() {
     if (!this.config.idle?.prompt) {
       return;
     }
 
-    await this.enqueueChat(this.config.idle?.prompt, {});
+    await this.sendTalkLineFromPrompt(this.config.idle?.prompt, {});
   }
 
   async getAvatarImage(name: string): Promise<Buffer | null> {
@@ -143,10 +141,10 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     });
   }
 
-  private async *getChatResponsesStream(
+  private async *generateTalkText(
     prompt: string,
     imageURL?: string,
-    signal?: AbortSignal
+    { signal }: { signal?: AbortSignal } = {}
   ): AsyncGenerator<string, void, unknown> {
     if (!this.openai) {
       const baseURL = this.config.openai?.baseURL;
@@ -216,7 +214,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
   private async synthesizeAudio(
     text: string,
-    signal?: AbortSignal
+    { signal }: { signal?: AbortSignal } = {}
   ): Promise<ArrayBuffer> {
     for (const { from, to } of this.config.replace) {
       text = text.replace(new RegExp(from, "g"), to);
