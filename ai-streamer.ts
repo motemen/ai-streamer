@@ -3,6 +3,7 @@ import EventEmitter from "node:events";
 import path from "node:path";
 
 import { OpenAI } from "openai";
+import PQueue from "p-queue";
 
 import { z } from "zod";
 import createDebug from "debug";
@@ -39,14 +40,26 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   private openai: OpenAI | null = null;
   private history: string[] = [];
 
+  // enqueueChatが並列に実行されると台詞が混ざるので、一つずつ実行する
+  private queue: PQueue;
+  private currentAbortController: AbortController | null = null;
+
   constructor() {
     super({ captureRejections: true });
     this.config = ConfigSchema.parse({});
+    this.queue = new PQueue({ concurrency: 1 });
   }
 
   configure(input: unknown) {
     this.config = ConfigSchema.parse(input);
     debug("Loaded configuration: %O", this.config);
+  }
+
+  private cancelCurrentTask() {
+    if (this.currentAbortController) {
+      this.currentAbortController.abort();
+      this.currentAbortController = null;
+    }
   }
 
   async enqueueChat(
@@ -58,35 +71,59 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }: { imageURL?: string; preempt?: boolean; useDirectPrompt?: boolean }
   ): Promise<void> {
     if (preempt) {
+      this.cancelCurrentTask();
+      this.queue.clear();
       this.emit("frontendCommand", { type: CLEAR_QUEUE });
     }
 
-    const textChunks = useDirectPrompt
-      ? prompt.split(PUNCTUATION_REGEX)
-      : this.getChatResponsesStream(prompt, imageURL);
+    await this.queue.add(async () => {
+      const abortController = new AbortController();
+      this.currentAbortController = abortController;
 
-    for await (let text of textChunks) {
-      const commands: FrontendCommand[] = [];
+      try {
+        const textChunks = useDirectPrompt
+          ? prompt.split(PUNCTUATION_REGEX)
+          : this.getChatResponsesStream(
+              prompt,
+              imageURL,
+              abortController.signal
+            );
 
-      text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
-        const command = this.parseCommand(match);
-        if (command) {
-          commands.push(command);
+        for await (let text of textChunks) {
+          if (abortController.signal.aborted) {
+            break;
+          }
+
+          const commands: FrontendCommand[] = [];
+
+          text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
+            const command = this.parseCommand(match);
+            if (command) {
+              commands.push(command);
+            }
+            return "";
+          });
+
+          commands.push({ type: UPDATE_CAPTION, caption: text });
+
+          const audioBuffer = await this.synthesizeAudio(
+            text,
+            abortController.signal
+          );
+
+          for (const command of commands) {
+            this.emit("frontendCommand", command);
+          }
+
+          const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
+          this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
         }
-        return "";
-      });
-
-      commands.push({ type: UPDATE_CAPTION, caption: text });
-
-      const audioBuffer = await this.synthesizeAudio(text);
-
-      for (const command of commands) {
-        this.emit("frontendCommand", command);
+      } finally {
+        if (this.currentAbortController === abortController) {
+          this.currentAbortController = null;
+        }
       }
-
-      const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
-      this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
-    }
+    });
   }
 
   // 雑談するAPI
@@ -98,7 +135,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     await this.enqueueChat(this.config.idle?.prompt, {});
   }
 
-  async getAvatarImage(name: string): Promise<Buffer<ArrayBufferLike> | null> {
+  async getAvatarImage(name: string): Promise<Buffer | null> {
     const filePath = path.join(this.config.avatarImageDir, name);
     return readFile(filePath).catch((err) => {
       console.warn(`Avatar image ${filePath} not found`, err);
@@ -108,7 +145,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
   private async *getChatResponsesStream(
     prompt: string,
-    imageURL?: string
+    imageURL?: string,
+    signal?: AbortSignal
   ): AsyncGenerator<string, void, unknown> {
     if (!this.openai) {
       const baseURL = this.config.openai?.baseURL;
@@ -148,11 +186,16 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       model: this.config.openai?.model ?? DEFAULT_OPENAI_MODEL,
       messages,
       stream: true,
+      ...(signal ? { signal } : {}),
     });
 
     let buffer = "";
     let totalBuffer = "";
     for await (const chunk of responseStream) {
+      if (signal?.aborted) {
+        break;
+      }
+
       buffer += chunk.choices[0].delta.content ?? "";
       totalBuffer += chunk.choices[0].delta.content ?? "";
 
@@ -171,7 +214,10 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     this.history.push(totalBuffer);
   }
 
-  private async synthesizeAudio(text: string): Promise<ArrayBuffer> {
+  private async synthesizeAudio(
+    text: string,
+    signal?: AbortSignal
+  ): Promise<ArrayBuffer> {
     for (const { from, to } of this.config.replace) {
       text = text.replace(new RegExp(from, "g"), to);
     }
@@ -184,6 +230,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       )}`,
       {
         method: "POST",
+        signal,
       }
     ).catch((err) => {
       throw new Error(`POST ${voicevoxOrigin}/audio_query failed: ${err}`);
@@ -196,19 +243,13 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(audioQuery),
+        signal,
       }
     ).catch((err) => {
       throw new Error(`POST ${voicevoxOrigin}/synthesis failed: ${err}`);
     });
 
     return synthesisResponse.arrayBuffer();
-  }
-
-  private async playAudio(text: string, audioBuffer: ArrayBuffer) {
-    debug(`Playing audio buffer`);
-
-    const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
-    this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
   }
 
   private parseCommand(text: string): FrontendCommand | null {
