@@ -49,12 +49,12 @@ body {
 
 .avatar {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 30%;
-  height: 40%;
+  bottom: -30vh;
+  right: -5vw;
+  width: 30vw;
   z-index: -10;
 }
 
 .avatarImage {
+  width: 100%;
 }
