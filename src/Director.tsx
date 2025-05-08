@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useActionState } from "react";
 
 interface LogEntry {
+  id: string;
   prompt: string;
   status: "sending" | "sent" | "error";
   response?: string;
@@ -36,68 +37,104 @@ export default function Director() {
     handleChange();
   });
 
+  // 外部からログエントリを更新するための関数はuseActionState内で実装
+
   const [state, sendPrompt, isPending] = useActionState<State, FormData>(
-    async (
-      prevState: State,
-      formData: FormData
-    ): Promise<State> => {
+    async (prevState: State, formData: FormData): Promise<State> => {
+      // ログエントリの更新操作の場合の処理
+      const updateLogId = formData.get("_update_log");
+      const updateType = formData.get("_update_type");
+      
+      if (updateLogId && updateType === "update_log") {
+        // ログ更新の場合、状態タイプに応じてログエントリを更新
+        const status = formData.get("status");
+        
+        if (status === "sent") {
+          // 送信成功の場合
+          return {
+            ...prevState,
+            status: "success",
+            logs: prevState.logs.map(log => 
+              log.id === updateLogId ? 
+              { ...log, status: "sent" as const } : 
+              log
+            )
+          };
+        } else if (status === "error") {
+          // エラーの場合
+          const error = formData.get("error") as string;
+          return {
+            ...prevState,
+            logs: prevState.logs.map(log => 
+              log.id === updateLogId ? 
+              { ...log, status: "error" as const, error } : 
+              log
+            )
+          };
+        }
+        
+        return prevState;
+      }
+      
+      // 通常のプロンプト送信処理
       const promptValue = formData.get("prompt") as string;
 
       if (!promptValue?.trim()) {
-        return { 
+        return {
           ...prevState,
-          status: "error", 
-          error: "プロンプトが空です" 
+          status: "error",
+          error: "プロンプトが空です",
         };
       }
 
-      // 送信中状態をログに追加
+      // ユニークなIDを生成
+      const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // 入力フィールドをクリア
+      formRef.current?.reset();
+      
+      // 送信中状態をログに追加して即座に返す
       const sendingState: State = {
         ...prevState,
         status: "submitting",
-        logs: [
-          { prompt: promptValue, status: "sending" },
-          ...prevState.logs
-        ]
+        logs: [{ id: logId, prompt: promptValue, status: "sending" }, ...prevState.logs],
       };
 
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: promptValue }),
-        });
-
+      // 非同期でfetchを行い、結果によってログエントリを更新
+      fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: promptValue }),
+      })
+      .then(async (res) => {
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(errorText);
         }
-
+        
         const result = await res.json();
+        
+        // 成功状態のログ更新
+        const updateFormData = new FormData();
+        updateFormData.append("_update_log", logId);
+        updateFormData.append("_update_type", "update_log");
+        updateFormData.append("status", "sent");
+        updateFormData.append("response", result.message || "");
+        
+        sendPrompt(updateFormData);
+      })
+      .catch((e: Error) => {
+        // エラー状態のログ更新
+        const updateFormData = new FormData();
+        updateFormData.append("_update_log", logId);
+        updateFormData.append("_update_type", "update_log");
+        updateFormData.append("status", "error");
+        updateFormData.append("error", e.message);
+        
+        sendPrompt(updateFormData);
+      });
 
-        // 入力フィールドをクリア
-        formRef.current?.reset();
-
-        // 成功状態を返す
-        return { 
-          status: "success", 
-          result,
-          logs: [
-            { prompt: promptValue, status: "sent" },
-            ...sendingState.logs.slice(1)
-          ]
-        };
-      } catch (e: any) {
-        // エラー状態を返す
-        return { 
-          status: "error", 
-          error: e.message,
-          logs: [
-            { prompt: promptValue, status: "error", error: e.message },
-            ...sendingState.logs.slice(1)
-          ]
-        };
-      }
+      return sendingState;
     },
     { status: "idle", logs: [] }
   );
@@ -130,11 +167,7 @@ export default function Director() {
             <button
               type="submit"
               disabled={isPending || !isValid}
-              className={`px-4 py-2 rounded-md text-white font-medium ${
-                isPending || !isValid
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
-              }`}
+              className="px-4 py-2 rounded-md text-white font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               送信
             </button>
