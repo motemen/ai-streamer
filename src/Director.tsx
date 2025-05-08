@@ -1,5 +1,4 @@
-import { useState, useRef } from "react";
-import { useActionState } from "react";
+import { useState, useRef, useEffect, useActionState } from "react";
 
 interface LogEntry {
   prompt: string;
@@ -15,44 +14,65 @@ interface ActionState {
 }
 
 export default function Director() {
-  const [prompt, setPrompt] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const previousPromptRef = useRef("");
-  
-  const [state, sendPrompt] = useActionState(
-    async (_prevState: ActionState, formData: FormData) => {
+  const [isValid, setIsValid] = useState(true);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleChange = () => {
+    setIsValid(formRef.current?.checkValidity() ?? true);
+  };
+
+  useEffect(() => {
+    const form = formRef.current;
+    form?.addEventListener("change", handleChange);
+    form?.addEventListener("input", handleChange);
+    return () => {
+      form?.removeEventListener("change", handleChange);
+      form?.removeEventListener("input", handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    handleChange();
+  });
+
+  const [state, sendPrompt, isPending] = useActionState<ActionState, FormData>(
+    async (
+      _prevState: ActionState,
+      formData: FormData
+    ): Promise<ActionState> => {
       const promptValue = formData.get("prompt") as string;
-      
-      if (!promptValue?.trim()) return { status: "error", error: "プロンプトが空です" };
-      
-      previousPromptRef.current = promptValue;
-      
+
+      if (!promptValue?.trim()) {
+        return { status: "error", error: "プロンプトが空です" };
+      }
+
       // 送信中状態をログに追加
       setLogs((prev) => [{ prompt: promptValue, status: "sending" }, ...prev]);
-      
+
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: promptValue }),
         });
-        
+
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(errorText);
         }
-        
+
         const result = await res.json();
-        
+
         // 成功状態をログに更新
         setLogs((prev) => [
           { prompt: promptValue, status: "sent" },
           ...prev.slice(1),
         ]);
-        
+
         // 入力フィールドをクリア
-        setPrompt("");
-        
+        formRef.current?.reset();
+
         return { status: "success", result };
       } catch (e: any) {
         // エラー状態をログに更新
@@ -60,68 +80,55 @@ export default function Director() {
           { prompt: promptValue, status: "error", error: e.message },
           ...prev.slice(1),
         ]);
-        
+
         return { status: "error", error: e.message };
       }
     },
-    { status: "idle" } as ActionState
+    { status: "idle" }
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && e.ctrlKey && state.status !== "submitting" && prompt.trim()) {
+    if (e.key === "Enter" && e.ctrlKey && state.status !== "submitting") {
       e.preventDefault();
-      const formData = new FormData();
-      formData.append("prompt", prompt);
-      sendPrompt(formData);
+      (e.target as HTMLTextAreaElement).form?.requestSubmit();
     }
   };
 
-  const isSubmitting = state.status === "submitting";
-
   return (
-    <div className="max-w-3xl mx-auto my-8 px-4 font-sans">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">
-        ディレクターコンソール
-      </h2>
+    <>
+      <div className="max-w-3xl mx-auto my-8 px-4 font-sans">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">
+          ディレクターコンソール
+        </h2>
 
-      <form 
-        action={sendPrompt}
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          // フォーム送信後にプロンプトをクリアするためにデフォルトの挙動を防止
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget);
-          sendPrompt(formData);
-        }}
-      >
-        <div className="flex gap-3">
-          <textarea
-            name="prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={3}
-            className="flex-1 p-3 text-base border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
-            placeholder="プロンプトを入力... (Ctrl+Enterで送信)"
-            disabled={isSubmitting}
-          />
-          <button
-            type="submit"
-            disabled={isSubmitting || !prompt.trim()}
-            className={`px-4 py-2 rounded-md text-white font-medium ${
-              isSubmitting || !prompt.trim()
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
-            }`}
-          >
-            送信
-          </button>
-        </div>
-      </form>
-      </div>
+        <form action={sendPrompt} ref={formRef} className="flex flex-col gap-4">
+          <div className="flex gap-3">
+            <textarea
+              name="prompt"
+              onKeyDown={handleKeyDown}
+              rows={3}
+              className="flex-1 p-3 text-base border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              placeholder="プロンプトを入力... (Ctrl+Enterで送信)"
+              disabled={isPending}
+              required
+            />
+            <button
+              type="submit"
+              disabled={isPending || !isValid}
+              className={`px-4 py-2 rounded-md text-white font-medium ${
+                isPending || !isValid
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
+              }`}
+            >
+              送信
+            </button>
+          </div>
+        </form>
 
-      <div className="mt-8">
-        <h3 className="text-xl font-semibold mb-4 text-gray-700">送信ログ</h3>
+        <h3 className="text-xl font-semibold mt-8 mb-4 text-gray-700">
+          送信ログ
+        </h3>
         <div className="bg-gray-50 rounded-lg p-4 max-h-[50vh] overflow-y-auto">
           {logs.length === 0 ? (
             <p className="text-gray-500 text-center py-4">
@@ -153,6 +160,6 @@ export default function Director() {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
