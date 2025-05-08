@@ -7,14 +7,14 @@ interface LogEntry {
   error?: string;
 }
 
-interface ActionState {
+interface State {
   status: "idle" | "submitting" | "success" | "error";
+  logs: LogEntry[];
   error?: string;
   result?: { message: string };
 }
 
 export default function Director() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isValid, setIsValid] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -36,19 +36,30 @@ export default function Director() {
     handleChange();
   });
 
-  const [state, sendPrompt, isPending] = useActionState<ActionState, FormData>(
+  const [state, sendPrompt, isPending] = useActionState<State, FormData>(
     async (
-      _prevState: ActionState,
+      prevState: State,
       formData: FormData
-    ): Promise<ActionState> => {
+    ): Promise<State> => {
       const promptValue = formData.get("prompt") as string;
 
       if (!promptValue?.trim()) {
-        return { status: "error", error: "プロンプトが空です" };
+        return { 
+          ...prevState,
+          status: "error", 
+          error: "プロンプトが空です" 
+        };
       }
 
       // 送信中状態をログに追加
-      setLogs((prev) => [{ prompt: promptValue, status: "sending" }, ...prev]);
+      const sendingState: State = {
+        ...prevState,
+        status: "submitting",
+        logs: [
+          { prompt: promptValue, status: "sending" },
+          ...prevState.logs
+        ]
+      };
 
       try {
         const res = await fetch("/api/chat", {
@@ -64,27 +75,31 @@ export default function Director() {
 
         const result = await res.json();
 
-        // 成功状態をログに更新
-        setLogs((prev) => [
-          { prompt: promptValue, status: "sent" },
-          ...prev.slice(1),
-        ]);
-
         // 入力フィールドをクリア
         formRef.current?.reset();
 
-        return { status: "success", result };
+        // 成功状態を返す
+        return { 
+          status: "success", 
+          result,
+          logs: [
+            { prompt: promptValue, status: "sent" },
+            ...sendingState.logs.slice(1)
+          ]
+        };
       } catch (e: any) {
-        // エラー状態をログに更新
-        setLogs((prev) => [
-          { prompt: promptValue, status: "error", error: e.message },
-          ...prev.slice(1),
-        ]);
-
-        return { status: "error", error: e.message };
+        // エラー状態を返す
+        return { 
+          status: "error", 
+          error: e.message,
+          logs: [
+            { prompt: promptValue, status: "error", error: e.message },
+            ...sendingState.logs.slice(1)
+          ]
+        };
       }
     },
-    { status: "idle" }
+    { status: "idle", logs: [] }
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -130,13 +145,13 @@ export default function Director() {
           送信ログ
         </h3>
         <div className="bg-gray-50 rounded-lg p-4 max-h-[50vh] overflow-y-auto">
-          {logs.length === 0 ? (
+          {state.logs.length === 0 ? (
             <p className="text-gray-500 text-center py-4">
               ログはまだありません
             </p>
           ) : (
             <ul className="space-y-3">
-              {logs.map((log, i) => (
+              {state.logs.map((log: LogEntry, i: number) => (
                 <li
                   key={i}
                   className="p-3 border-b border-gray-200 last:border-b-0"
