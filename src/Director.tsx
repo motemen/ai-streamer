@@ -1,21 +1,16 @@
-import { useState, useRef, useEffect, useActionState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface LogEntry {
   id: string;
   prompt: string;
   status: "sending" | "sent" | "error";
-  response?: string;
+  timestamp: Date;
+  speechLine?: string[];
   error?: string;
-}
-
-interface State {
-  status: "idle" | "submitting" | "success" | "error";
-  logs: LogEntry[];
-  error?: string;
-  result?: { message: string };
 }
 
 export default function Director() {
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isValid, setIsValid] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -37,112 +32,74 @@ export default function Director() {
     handleChange();
   });
 
-  // 外部からログエントリを更新するための関数はuseActionState内で実装
+  // ログエントリを追加する関数
+  const addLogEntry = (entry: LogEntry) => {
+    setLogs((prevLogs) => [entry, ...prevLogs]);
+    return entry.id; // IDを返す
+  };
 
-  const [state, sendPrompt, isPending] = useActionState<State, FormData>(
-    async (prevState: State, formData: FormData): Promise<State> => {
-      // ログエントリの更新操作の場合の処理
-      const updateLogId = formData.get("_update_log");
-      const updateType = formData.get("_update_type");
-      
-      if (updateLogId && updateType === "update_log") {
-        // ログ更新の場合、状態タイプに応じてログエントリを更新
-        const status = formData.get("status");
-        
-        if (status === "sent") {
-          // 送信成功の場合
-          return {
-            ...prevState,
-            status: "success",
-            logs: prevState.logs.map(log => 
-              log.id === updateLogId ? 
-              { ...log, status: "sent" as const } : 
-              log
-            )
-          };
-        } else if (status === "error") {
-          // エラーの場合
-          const error = formData.get("error") as string;
-          return {
-            ...prevState,
-            logs: prevState.logs.map(log => 
-              log.id === updateLogId ? 
-              { ...log, status: "error" as const, error } : 
-              log
-            )
-          };
-        }
-        
-        return prevState;
-      }
-      
-      // 通常のプロンプト送信処理
-      const promptValue = formData.get("prompt") as string;
+  // ログエントリを更新する関数
+  const updateLogEntry = (logId: string, update: Partial<LogEntry>) => {
+    setLogs((prevLogs) =>
+      prevLogs.map((log) => (log.id === logId ? { ...log, ...update } : log))
+    );
+  };
 
-      if (!promptValue?.trim()) {
-        return {
-          ...prevState,
-          status: "error",
-          error: "プロンプトが空です",
-        };
-      }
+  // プロンプト送信処理
+  const sendPrompt = async (ev: React.FormEvent<HTMLFormElement>) => {
+    ev.preventDefault();
 
-      // ユニークなIDを生成
-      const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // 入力フィールドをクリア
-      formRef.current?.reset();
-      
-      // 送信中状態をログに追加して即座に返す
-      const sendingState: State = {
-        ...prevState,
-        status: "submitting",
-        logs: [{ id: logId, prompt: promptValue, status: "sending" }, ...prevState.logs],
-      };
+    const formData = new FormData(ev.currentTarget);
+    const promptValue = formData.get("prompt") as string;
 
-      // 非同期でfetchを行い、結果によってログエントリを更新
-      fetch("/api/chat", {
+    if (!promptValue?.trim()) return;
+
+    // 入力フィールドをクリア
+    formRef.current?.reset();
+
+    // ユニークなIDを生成
+    const logId = `${Date.now()}.${Math.random().toString(36).substring(2)}`;
+
+    // 送信中ログエントリを追加
+    addLogEntry({
+      id: logId,
+      prompt: promptValue,
+      status: "sending",
+      timestamp: new Date(),
+    });
+
+    try {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: promptValue }),
-      })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText);
-        }
-        
-        const result = await res.json();
-        
-        // 成功状態のログ更新
-        const updateFormData = new FormData();
-        updateFormData.append("_update_log", logId);
-        updateFormData.append("_update_type", "update_log");
-        updateFormData.append("status", "sent");
-        updateFormData.append("response", result.message || "");
-        
-        sendPrompt(updateFormData);
-      })
-      .catch((e: Error) => {
-        // エラー状態のログ更新
-        const updateFormData = new FormData();
-        updateFormData.append("_update_log", logId);
-        updateFormData.append("_update_type", "update_log");
-        updateFormData.append("status", "error");
-        updateFormData.append("error", e.message);
-        
-        sendPrompt(updateFormData);
       });
 
-      return sendingState;
-    },
-    { status: "idle", logs: [] }
-  );
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && e.ctrlKey && state.status !== "submitting") {
-      e.preventDefault();
-      (e.target as HTMLTextAreaElement).form?.requestSubmit();
+      const result = await response.json();
+
+      // 成功状態にログを更新
+      updateLogEntry(logId, {
+        status: "sent",
+        speechLine: result.speechLine,
+      });
+    } catch (error) {
+      // エラー状態にログを更新
+      updateLogEntry(logId, {
+        status: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const handleKeyDown = (ev: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (ev.key === "Enter" && ev.ctrlKey) {
+      ev.preventDefault();
+      ev.currentTarget.form?.requestSubmit();
     }
   };
 
@@ -153,7 +110,11 @@ export default function Director() {
           ディレクターコンソール
         </h2>
 
-        <form action={sendPrompt} ref={formRef} className="flex flex-col gap-4">
+        <form
+          onSubmit={sendPrompt}
+          ref={formRef}
+          className="flex flex-col gap-4"
+        >
           <div className="flex gap-3">
             <textarea
               name="prompt"
@@ -161,12 +122,11 @@ export default function Director() {
               rows={3}
               className="flex-1 p-3 text-base border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
               placeholder="プロンプトを入力... (Ctrl+Enterで送信)"
-              disabled={isPending}
               required
             />
             <button
               type="submit"
-              disabled={isPending || !isValid}
+              disabled={!isValid}
               className="px-4 py-2 rounded-md text-white font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               送信
@@ -178,29 +138,48 @@ export default function Director() {
           送信ログ
         </h3>
         <div className="bg-gray-50 rounded-lg p-4 max-h-[50vh] overflow-y-auto">
-          {state.logs.length === 0 ? (
+          {logs.length === 0 ? (
             <p className="text-gray-500 text-center py-4">
               ログはまだありません
             </p>
           ) : (
             <ul className="space-y-3">
-              {state.logs.map((log: LogEntry, i: number) => (
+              {logs.map((log: LogEntry, i: number) => (
                 <li
                   key={i}
                   className="p-3 border-b border-gray-200 last:border-b-0"
                 >
-                  <span className="font-medium">{log.prompt}</span>
-                  {log.status === "sending" && (
-                    <span className="ml-2 text-gray-500 inline-flex items-center">
-                      <span>送信中</span>
-                      <span className="ml-1 animate-pulse">...</span>
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="flex items-center">
+                      <span className="font-medium">{log.prompt}</span>
+                      <div className="ml-2">
+                        {log.status === "sending" && (
+                          <span className="text-gray-500 inline-flex items-center">
+                            <span>送信中</span>
+                            <span className="ml-1 animate-pulse">...</span>
+                          </span>
+                        )}
+                        {log.status === "sent" && (
+                          <span className="text-green-600">✅</span>
+                        )}
+                        {log.status === "error" && (
+                          <span className="text-red-600">❌ {log.error}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                      {log.timestamp.toLocaleString()}
                     </span>
-                  )}
-                  {log.status === "sent" && (
-                    <span className="ml-2 text-green-600"> ✅</span>
-                  )}
-                  {log.status === "error" && (
-                    <span className="ml-2 text-red-600"> ❌ {log.error}</span>
+                  </div>
+                  {log.speechLine && (
+                    <div className="mt-2 text-sm text-gray-700 p-2 bg-gray-100 rounded-md">
+                      <div className="font-medium text-blue-700 mb-1">
+                        セリフ:
+                      </div>
+                      <div className="whitespace-pre-wrap">
+                        {log.speechLine.join(" ")}
+                      </div>
+                    </div>
                   )}
                 </li>
               ))}
