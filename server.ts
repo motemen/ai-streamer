@@ -14,7 +14,16 @@ const debug = createDebug("aistreamer");
 
 const app = new Hono();
 
-app.use("*", serveStatic({ root: "./dist" }));
+app.use(
+  "*",
+  serveStatic({
+    root: "./dist",
+    rewriteRequestPath: (path) =>
+      ({
+        "/director": "/director.html",
+      }[path] ?? path),
+  })
+);
 
 app.get("/api/stream", (c) => {
   debug("start streaming");
@@ -133,6 +142,6 @@ const { config } = await loadConfig({
 
 aiStreamer.configure(config);
 
-serve({ fetch: app.fetch, port: 18881 }, (info) => {
+serve({ fetch: app.fetch, port: 7766 }, (info) => {
   console.info(`Listening on http://localhost:${info.port}`);
 });
