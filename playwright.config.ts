@@ -39,6 +39,6 @@ export default defineConfig({
 
   webServer: {
     command: "pnpm tsx server.ts",
-    port: 18881,
+    port: 7766,
   },
 });

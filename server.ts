@@ -5,16 +5,25 @@ import { streamSSE } from "hono/streaming";
 
 import { loadConfig } from "c12";
 import createDebug from "debug";
+import { z } from "zod";
 
 import { aiStreamer } from "./ai-streamer";
 import { ConfigureCommand, FrontendCommand } from "./commands";
-import { z } from "zod";
 
 const debug = createDebug("aistreamer");
 
 const app = new Hono();
 
-app.use("*", serveStatic({ root: "./dist" }));
+app.use(
+  "*",
+  serveStatic({
+    root: "./dist",
+    rewriteRequestPath: (path) =>
+      ({
+        "/director": "/director.html",
+      }[path] ?? path),
+  })
+);
 
 app.get("/api/stream", (c) => {
   debug("start streaming");
@@ -75,12 +84,12 @@ app.post("/api/chat", async (c) => {
   }
 
   const { prompt, imageURL, interrupt, direct } = data;
-  await aiStreamer.dispatchSpeechLine(prompt, {
+  const speechLine = await aiStreamer.dispatchSpeechLine(prompt, {
     imageURL,
     interrupt,
     direct,
   });
-  return c.json({ message: "ok" });
+  return c.json({ message: "ok", speechLine });
 });
 
 const IdlePayloadSchema = z.object({
@@ -105,8 +114,10 @@ app.post("/api/idle", async (c) => {
     return c.json({ error: "No idle prompt configured" }, { status: 400 });
   }
 
-  await aiStreamer.dispatchSpeechLine(idlePrompt, { direct });
-  return c.json({ message: "ok" });
+  const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt, {
+    direct,
+  });
+  return c.json({ message: "ok", speechLine });
 });
 
 app.get("/api/avatar/:name", async (c) => {
@@ -131,6 +142,6 @@ const { config } = await loadConfig({
 
 aiStreamer.configure(config);
 
-serve({ fetch: app.fetch, port: 18881 }, (info) => {
+serve({ fetch: app.fetch, port: 7766 }, (info) => {
   console.info(`Listening on http://localhost:${info.port}`);
 });

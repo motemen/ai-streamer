@@ -69,16 +69,18 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       interrupt,
       direct,
     }: { imageURL?: string; interrupt?: boolean; direct?: boolean }
-  ): Promise<void> {
+  ): Promise<void | string[]> {
     if (interrupt) {
       this.cancelCurrentTask();
       this.queue.clear();
       this.emit("frontendCommand", { type: CLEAR_QUEUE });
     }
 
-    await this.queue.add(async () => {
+    return await this.queue.add(async (): Promise<string[]> => {
       const abortController = new AbortController();
       this.currentAbortController = abortController;
+
+      const result: string[] = [];
 
       try {
         const textChunks = direct
@@ -88,6 +90,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
             });
 
         for await (let text of textChunks) {
+          result.push(text);
+
           if (abortController.signal.aborted) {
             break;
           }
@@ -120,6 +124,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
           this.currentAbortController = null;
         }
       }
+
+      return result;
     });
   }
 
@@ -169,13 +175,15 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       },
     ];
 
-    const responseStream = await this.openai.chat.completions.create({
-      temperature: 1.2,
-      model: this.config.openai?.model ?? DEFAULT_OPENAI_MODEL,
-      messages,
-      stream: true,
-      ...(signal ? { signal } : {}),
-    });
+    const responseStream = await this.openai.chat.completions.create(
+      {
+        temperature: 1.2,
+        model: this.config.openai?.model ?? DEFAULT_OPENAI_MODEL,
+        messages,
+        stream: true,
+      },
+      signal ? { signal } : {}
+    );
 
     let buffer = "";
     let totalBuffer = "";
