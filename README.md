@@ -25,17 +25,22 @@ ai-streamerは、OpenAIとVOICEVOXを活用し、静止画ベースのVTuber実�
 
 ```mermaid
 sequenceDiagram
-  actor Client as 外部クライアント
-  participant Server as サーバ
+  actor User as ユーザ
+  participant Director as ディレクターコンソール (/director)
+  participant ExternalDirector as 外部プログラム
+  participant Server as サーバ (/api/*)
   participant Frontend as フロントエンド
   actor OBS as OBS Browser Source
 
-  Client->>Server: POST /api/chat
+  User->>Director: プロンプト入力
+  Director->>Server: POST /api/chat
+
   activate Server
   Server->>Server: 台詞生成・音声合成
   Server->>Frontend: SSE /api/stream
   deactivate Server
   Frontend->>Frontend: キュー・再生
+  Frontend-->>OBS: 取り込み
 
   opt キューが空のとき 
     Frontend->>Server: POST /api/idle
@@ -45,7 +50,9 @@ sequenceDiagram
     deactivate Server
   end
 
-  Frontend-->>OBS: 取り込み
+  opt 外部プログラム利用
+    ExternalDirector->>Server: POST /api/chat
+  end
 ```
 
 ### 主なイベント・コマンド
