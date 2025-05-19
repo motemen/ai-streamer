@@ -138,33 +138,28 @@ app.get("/api/avatar/:name", async (c) => {
   });
 });
 
+// https://github.com/modelcontextprotocol/typescript-sdk?tab=readme-ov-file#without-session-management-stateless
+// https://azukiazusa.dev/blog/mcp-server-streamable-http-transport/
 // https://zenn.dev/georgia1/articles/dd4fb566e470fe
 app.post("/api/mcp", async (c) => {
   try {
-    // Fetch APIのリクエスト/レスポンスをNode.jsのリクエスト/レスポンスに変換
     const { req, res } = toReqRes(c.req.raw);
-    const body = await c.req.json();
 
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-    });
-
-    transport.onerror = console.error.bind(console);
-
-    // MCPサーバーをトランスポートに接続
-    await mcpServer.connect(transport);
-
-    // MCPリクエストを処理
-    await transport.handleRequest(req, res, body);
-
-    // リクエストが終了したらリソースをクリーンアップ
     res.on("close", () => {
-      console.log("Request closed");
+      debug("MCP: Request closed");
       transport.close();
       mcpServer.close();
     });
 
-    // Node.jsのレスポンスをFetch APIのレスポンスに変換して返す
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    transport.onerror = console.error.bind(console);
+    await mcpServer.connect(transport);
+
+    const body = await c.req.json();
+    await transport.handleRequest(req, res, body);
+
     return toFetchResponse(res);
   } catch (e) {
     console.error("MCP request error:", e);
@@ -182,32 +177,11 @@ app.post("/api/mcp", async (c) => {
   }
 });
 
-// GET リクエスト（MCP）
-app.get("/api/mcp", (c) => {
-  console.log("Received GET MCP request");
+app.on(["GET", "DELETE"], "/api/mcp", (c) => {
   return c.json(
     {
       jsonrpc: "2.0",
-      error: {
-        code: -32000,
-        message: "Method not allowed.",
-      },
-      id: null,
-    },
-    { status: 405 }
-  );
-});
-
-// DELETE リクエスト（MCP）
-app.delete("/api/mcp", (c) => {
-  console.log("Received DELETE MCP request");
-  return c.json(
-    {
-      jsonrpc: "2.0",
-      error: {
-        code: -32000,
-        message: "Method not allowed.",
-      },
+      error: { code: -32000, message: "Method not allowed." },
       id: null,
     },
     { status: 405 }
@@ -220,9 +194,6 @@ const { config } = await loadConfig({
 });
 
 aiStreamer.configure(config);
-
-// MCPサーバーを起動
-console.info("MCP Server enabled via HTTP endpoint at /mcp");
 
 serve({ fetch: app.fetch, port: 7766 }, (info) => {
   console.info(`Listening on http://localhost:${info.port}`);
