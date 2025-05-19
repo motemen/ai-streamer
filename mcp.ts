@@ -14,7 +14,9 @@ mcpServer.tool(
     text: z.string().describe("現状や状況説明など、自由記述のテキスト"),
   },
   async ({ text }) => {
-    await aiStreamer.dispatchSpeechLine(`ステータス: ${text}`, {});
+    aiStreamer.dispatchSpeechLine(`ステータス: ${text}`, {}).catch((err) => {
+      console.error(`[error] MCP report_status: ${err}`);
+    });
 
     return {
       content: [

@@ -161,8 +161,8 @@ app.post("/api/mcp", async (c) => {
     await transport.handleRequest(req, res, body);
 
     return toFetchResponse(res);
-  } catch (e) {
-    console.error("MCP request error:", e);
+  } catch (err) {
+    console.error("[error] MCP request error:", err);
     return c.json(
       {
         jsonrpc: "2.0",
