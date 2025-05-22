@@ -8,15 +8,32 @@ export const mcpServer = new McpServer({
 });
 
 mcpServer.tool(
-  "report_status",
-  "現状を共有・レポートする。textパラメータで自然言語の説明を受け取り、記録します。",
+  "aistreamer_chat",
+  "AI Streamerに発話させる",
   {
-    text: z.string().describe("現状や状況説明など、自由記述のテキスト"),
+    text: z.string().describe("発話のベースとなるテキスト"),
+    direct: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        "textを直接、台詞として扱う。falseの場合はAIに台詞を生成させる"
+      ),
+    interrupt: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("進行中の発話を中断する"),
   },
-  async ({ text }) => {
-    aiStreamer.dispatchSpeechLine(`ステータス: ${text}`, {}).catch((err) => {
-      console.error(`[error] MCP report_status: ${err}`);
-    });
+  async ({ text, direct, interrupt }) => {
+    aiStreamer
+      .dispatchSpeechLine(text, {
+        direct,
+        interrupt,
+      })
+      .catch((err) => {
+        console.error(`[error] MCP report_status: ${err}`);
+      });
 
     return {
       content: [
