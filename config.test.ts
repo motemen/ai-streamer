@@ -101,14 +101,17 @@ describe('generateSystemPrompt', () => {
     expect(result).toBe('テストプロンプト');
   });
 
-  it('should return base prompt when avatar config is not provided', () => {
+  it('should include avatar instructions when avatar config is not provided (default enabled)', () => {
     const config = ConfigSchema.parse({
       prompt: 'テストプロンプト'
     });
 
     const result = generateSystemPrompt(config);
     
-    expect(result).toBe('テストプロンプト');
+    expect(result).toContain('テストプロンプト');
+    expect(result).toContain('setAvatar');
+    // デフォルトディレクトリにはdefault等のアバターが存在することを想定
+    expect(result).toContain('- default');
   });
 
   it('should include avatar instructions when avatar is enabled', () => {

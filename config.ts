@@ -37,7 +37,7 @@ export const ConfigSchema = z.object({
 
   avatar: z
     .object({
-      enabled: z.boolean().default(false),
+      enabled: z.boolean().default(true),
       directory: z.string().default(DEFAULT_AVATAR_IMAGE_DIR),
     })
     .optional(),
@@ -92,8 +92,11 @@ export function getAvailableAvatars(avatarDirectory: string): string[] {
 export function generateSystemPrompt(config: Config): string {
   let prompt = config.prompt;
   
-  if (config.avatar?.enabled) {
-    const avatarDirectory = config.avatar.directory || DEFAULT_AVATAR_IMAGE_DIR;
+  // avatar設定が未指定の場合はデフォルト値(enabled: true)を使用
+  const avatarEnabled = config.avatar?.enabled ?? true;
+  
+  if (avatarEnabled) {
+    const avatarDirectory = config.avatar?.directory || DEFAULT_AVATAR_IMAGE_DIR;
     const availableAvatars = getAvailableAvatars(avatarDirectory);
     
     const avatarInstructions = `
