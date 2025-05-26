@@ -20,6 +20,7 @@ import {
   ConfigSchema,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_VOICEVOX_ORIGIN,
+  generateSystemPrompt,
 } from "./config";
 
 import {
@@ -130,7 +131,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   }
 
   async getAvatarImage(name: string): Promise<Buffer | null> {
-    const filePath = path.join(this.config.avatarImageDir, name);
+    const filePath = path.join(this.config.avatar.directory, name);
     return readFile(filePath).catch((err) => {
       console.warn(`Avatar image ${filePath} not found`, err);
       return null;
@@ -150,7 +151,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
 
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: this.config.prompt },
+      { role: "system", content: generateSystemPrompt(this.config) },
 
       ...this.history.slice(-this.config.maxHistory).map(
         (content): ChatCompletionMessageParam => ({
