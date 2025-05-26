@@ -40,7 +40,7 @@ export const ConfigSchema = z.object({
       enabled: z.boolean().default(true),
       directory: z.string().default(DEFAULT_AVATAR_IMAGE_DIR),
     })
-    .optional(),
+    .default({ enabled: true, directory: DEFAULT_AVATAR_IMAGE_DIR }),
 
   idle: z
     .object({
@@ -57,8 +57,6 @@ export const ConfigSchema = z.object({
       })
     )
     .default([]),
-
-  avatarImageDir: z.string().default(DEFAULT_AVATAR_IMAGE_DIR),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -92,12 +90,8 @@ export function getAvailableAvatars(avatarDirectory: string): string[] {
 export function generateSystemPrompt(config: Config): string {
   let prompt = config.prompt;
   
-  // avatar設定が未指定の場合はデフォルト値(enabled: true)を使用
-  const avatarEnabled = config.avatar?.enabled ?? true;
-  
-  if (avatarEnabled) {
-    const avatarDirectory = config.avatar?.directory || DEFAULT_AVATAR_IMAGE_DIR;
-    const availableAvatars = getAvailableAvatars(avatarDirectory);
+  if (config.avatar.enabled) {
+    const availableAvatars = getAvailableAvatars(config.avatar.directory);
     
     const avatarInstructions = `
 また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。

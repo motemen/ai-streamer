@@ -131,7 +131,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   }
 
   async getAvatarImage(name: string): Promise<Buffer | null> {
-    const filePath = path.join(this.config.avatarImageDir, name);
+    const filePath = path.join(this.config.avatar.directory, name);
     return readFile(filePath).catch((err) => {
       console.warn(`Avatar image ${filePath} not found`, err);
       return null;
