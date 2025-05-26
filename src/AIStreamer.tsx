@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PQueue from "p-queue";
+import Toast from "./Toast";
 
 import styles from "./AIStreamer.module.css";
 import {
@@ -104,6 +105,7 @@ function createAudioContext(): AudioContext {
 function AIStreamer() {
   const [caption, setCaption] = useState("");
   const [avatar, setAvatar] = useState("default");
+  const [toastMessage, setToastMessage] = useState("");
 
   useEffect(() => {
     console.debug("Opening EventSource");
@@ -166,28 +168,35 @@ function AIStreamer() {
   }, []);
 
   const playAudio = async (audioDataBase64: string) => {
-    // --autoplay-policy=no-user-gesture-required が必要
-    // <https://developer.chrome.com/blog/autoplay?hl=ja>
-    const audioContext = createAudioContext();
-    const audioData = Uint8Array.from(atob(audioDataBase64), (c) =>
-      c.charCodeAt(0)
-    ).buffer;
+    try {
+      // --autoplay-policy=no-user-gesture-required が必要
+      // <https://developer.chrome.com/blog/autoplay?hl=ja>
+      const audioContext = createAudioContext();
+      const audioData = Uint8Array.from(atob(audioDataBase64), (c) =>
+        c.charCodeAt(0)
+      ).buffer;
 
-    const buffer = await audioContext.decodeAudioData(audioData);
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start(0);
+      const buffer = await audioContext.decodeAudioData(audioData);
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start(0);
 
-    return new Promise<void>((resolve) => {
-      source.onended = () => {
-        resolve();
-      };
-    });
+      return new Promise<void>((resolve) => {
+        source.onended = () => {
+          resolve();
+        };
+      });
+    } catch (error) {
+      console.error("Error in playAudio:", error);
+      setToastMessage("Error playing audio. Please check console for details.");
+      return Promise.resolve();
+    }
   };
 
   return (
     <>
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
       <div className={styles.container}>
         <Caption text={caption} />
         <Avatar name={avatar} />
