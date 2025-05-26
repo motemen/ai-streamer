@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { streamSSE } from "hono/streaming";
+import { toFetchResponse, toReqRes } from "fetch-to-node";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import { loadConfig } from "c12";
 import createDebug from "debug";
@@ -9,6 +11,7 @@ import { z } from "zod";
 
 import { aiStreamer } from "./ai-streamer";
 import { ConfigureCommand, FrontendCommand } from "./commands";
+import { mcpServer } from "./mcp";
 
 const debug = createDebug("aistreamer");
 
@@ -133,6 +136,56 @@ app.get("/api/avatar/:name", async (c) => {
       Expires: new Date(Date.now() + 60 * 60 * 1000).toUTCString(),
     },
   });
+});
+
+// https://github.com/modelcontextprotocol/typescript-sdk?tab=readme-ov-file#without-session-management-stateless
+// https://azukiazusa.dev/blog/mcp-server-streamable-http-transport/
+// https://zenn.dev/georgia1/articles/dd4fb566e470fe
+app.post("/api/mcp", async (c) => {
+  try {
+    const { req, res } = toReqRes(c.req.raw);
+
+    res.on("close", () => {
+      debug("MCP: Request closed");
+      transport.close();
+      mcpServer.close();
+    });
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    transport.onerror = console.error.bind(console);
+    await mcpServer.connect(transport);
+
+    const body = await c.req.json();
+    await transport.handleRequest(req, res, body);
+
+    return toFetchResponse(res);
+  } catch (err) {
+    console.error("[error] MCP request error:", err);
+    return c.json(
+      {
+        jsonrpc: "2.0",
+        error: {
+          code: -32603,
+          message: "Internal server error",
+        },
+        id: null,
+      },
+      { status: 500 }
+    );
+  }
+});
+
+app.on(["GET", "DELETE"], "/api/mcp", (c) => {
+  return c.json(
+    {
+      jsonrpc: "2.0",
+      error: { code: -32000, message: "Method not allowed." },
+      id: null,
+    },
+    { status: 405 }
+  );
 });
 
 const { config } = await loadConfig({
