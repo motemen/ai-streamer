@@ -39,7 +39,7 @@ mcpServer.tool(
       content: [
         {
           type: "text",
-          text: `レポートを受け付けました: ${text}`,
+          text: `発話を受け付けました: ${text}`,
         },
       ],
     };
