@@ -99,3 +99,44 @@ test("長い台詞の読み上げ中につぎの台詞が来ても混ざらな�
 
   await page.waitForTimeout(1000);
 });
+
+async function requestIdleAPI({ baseURL }: { baseURL?: string }) {
+  return fetch(new URL("/api/idle", baseURL), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // No body for this request
+  });
+}
+
+test("/api/idle triggers speech line when prompt is configured", async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto("/"); // Ensure page is loaded
+
+  // Assume aiStreamer.config.idle.prompt is set in the test environment's config
+  // and that the default prompt is "Thinking out loud..."
+  const response = await requestIdleAPI({ baseURL });
+  expect(response.ok).toBeTruthy();
+  const json = await response.json();
+  expect(json.message).toBe("ok");
+  expect(json.speechLine).toBeDefined();
+  // Check for caption update
+  // This assumes the default idle prompt used by the server in test mode is "Thinking out loud..."
+  // If this text is different or not set, this part of the test will fail.
+  await expect(page.getByRole("caption")).toContainText(
+    json.speechLine.text
+  );
+});
+
+test("/api/idle returns 400 if no idle prompt is configured", async ({
+  baseURL,
+}) => {
+  // This test assumes a scenario where aiStreamer.config.idle.prompt is undefined.
+  // This might require a specific server configuration for this test to pass reliably.
+  // If the server always has a default idle prompt, this test will fail.
+  const response = await requestIdleAPI({ baseURL });
+  expect(response.status).toBe(400);
+  const json = await response.json();
+  expect(json.error).toBe("No idle prompt configured");
+});

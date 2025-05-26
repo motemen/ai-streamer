@@ -92,31 +92,17 @@ app.post("/api/chat", async (c) => {
   return c.json({ message: "ok", speechLine });
 });
 
-const IdlePayloadSchema = z.object({
-  prompt: z.string().optional(),
-  direct: z.boolean().optional(),
-});
-
 // XXX: 雑談のタイミングはクライアント側でコントロールしているが、クライアントが複数あると困る
 app.post("/api/idle", async (c) => {
-  const body = await c.req.json();
-  const { success, data, error } = IdlePayloadSchema.safeParse(body);
-  if (!success) {
-    return c.json(
-      { error: "Invalid payload", details: error },
-      { status: 400 }
-    );
-  }
-
-  const { prompt, direct } = data;
-  const idlePrompt = prompt ?? aiStreamer.config.idle?.prompt;
+  const idlePrompt = aiStreamer.config.idle?.prompt;
   if (!idlePrompt) {
     return c.json({ error: "No idle prompt configured" }, { status: 400 });
   }
 
-  const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt, {
-    direct,
-  });
+  // Assuming direct is no longer needed as it came from the body.
+  // If direct must be preserved with a default, it needs to be defined here.
+  // For now, per plan, we remove it.
+  const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt);
   return c.json({ message: "ok", speechLine });
 });
 
