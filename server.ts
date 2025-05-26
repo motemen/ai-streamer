@@ -99,7 +99,7 @@ app.post("/api/idle", async (c) => {
     return c.json({ error: "No idle prompt configured" }, { status: 400 });
   }
 
-  const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt);
+  const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt, {});
   return c.json({ message: "ok", speechLine });
 });
 
