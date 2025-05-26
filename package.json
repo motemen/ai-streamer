@@ -10,8 +10,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vite build && playwright test",
+    "test": "pnpm run test:unit && pnpm run test:e2e",
     "test:unit": "vitest",
+    "test:e2e": "vite build && playwright test",
     "generate": "hcm './src/**/*.module.css'"
   },
   "dependencies": {
