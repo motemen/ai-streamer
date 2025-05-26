@@ -2,6 +2,7 @@ import { z } from "zod";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
+import { readdirSync } from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,18 +15,8 @@ const DEFAULT_PROMPT = `
 あなたはゲーム実況ストリーマーです。
 あなたは情緒豊かで、いつも視聴者に楽しい時間を提供します。
 これからゲームのプレイ状況を伝えるので、それに合わせたセリフを生成してください。
-
-また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
-<setAvatar default>
-
-avatarとして指定できるのは以下です。
-- default
-- 喜び
-- 当惑
-- 涙目
-- 焦り
-- ドヤ顔
 `.trim();
+
 
 export const ConfigSchema = z.object({
   voicevox: z
@@ -43,6 +34,13 @@ export const ConfigSchema = z.object({
 
   prompt: z.string().default(DEFAULT_PROMPT),
   maxHistory: z.number().default(10),
+
+  avatar: z
+    .object({
+      enabled: z.boolean().default(false),
+      directory: z.string().default(DEFAULT_AVATAR_IMAGE_DIR),
+    })
+    .optional(),
 
   idle: z
     .object({
@@ -64,3 +62,50 @@ export const ConfigSchema = z.object({
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
+
+/**
+ * 指定されたavatarディレクトリからアバター名のリストを取得する
+ */
+export function getAvailableAvatars(avatarDirectory: string): string[] {
+  try {
+    const files = readdirSync(avatarDirectory);
+    const avatarNames = files
+      .filter(file => /\.(png|jpg|jpeg|gif|webp)$/i.test(file))
+      .map(file => path.parse(file).name);
+    
+    // defaultは常に先頭に
+    const avatars = avatarNames.filter(name => name !== 'default');
+    if (avatarNames.includes('default')) {
+      avatars.unshift('default');
+    }
+    
+    return avatars;
+  } catch (error) {
+    console.warn(`Failed to read avatar directory ${avatarDirectory}:`, error);
+    return ['default'];
+  }
+}
+
+/**
+ * 設定に基づいてシステムプロンプトを生成する
+ */
+export function generateSystemPrompt(config: Config): string {
+  let prompt = config.prompt;
+  
+  if (config.avatar?.enabled) {
+    const avatarDirectory = config.avatar.directory || DEFAULT_AVATAR_IMAGE_DIR;
+    const availableAvatars = getAvailableAvatars(avatarDirectory);
+    
+    const avatarInstructions = `
+また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
+<setAvatar default>
+
+avatarとして指定できるのは以下です。
+${availableAvatars.map(avatar => `- ${avatar}`).join('\n')}
+`.trim();
+    
+    prompt = `${prompt}\n\n${avatarInstructions}`;
+  }
+  
+  return prompt;
+}

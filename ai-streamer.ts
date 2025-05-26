@@ -20,6 +20,7 @@ import {
   ConfigSchema,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_VOICEVOX_ORIGIN,
+  generateSystemPrompt,
 } from "./config";
 
 import {
@@ -150,7 +151,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
 
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: this.config.prompt },
+      { role: "system", content: generateSystemPrompt(this.config) },
 
       ...this.history.slice(-this.config.maxHistory).map(
         (content): ChatCompletionMessageParam => ({
