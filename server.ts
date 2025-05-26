@@ -99,9 +99,6 @@ app.post("/api/idle", async (c) => {
     return c.json({ error: "No idle prompt configured" }, { status: 400 });
   }
 
-  // Assuming direct is no longer needed as it came from the body.
-  // If direct must be preserved with a default, it needs to be defined here.
-  // For now, per plan, we remove it.
   const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt);
   return c.json({ message: "ok", speechLine });
 });
