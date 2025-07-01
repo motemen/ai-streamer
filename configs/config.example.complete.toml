@@ -26,10 +26,14 @@ origin = "http://localhost:50021"
 # AIプロバイダーに関する設定
 [ai]
 # AIプロバイダー
+# 選択肢: "openai", "google", "anthropic"
 # デフォルト: "openai"
 provider = "openai"
 # 使用するモデル名
-# デフォルト: "gpt-4o-mini"
+# OpenAI: "gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo" など
+# Google: "gemini-2.0-flash-exp", "gemini-1.5-pro" など
+# Anthropic: "claude-3-5-sonnet-20241022", "claude-3-haiku-20240307" など
+# デフォルト: プロバイダーごとの推奨モデル
 model = "gpt-4o-mini"
 
 # アバター設定

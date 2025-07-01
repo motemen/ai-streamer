@@ -7,17 +7,7 @@ prompt = """あなたはゲーム実況ストリーマーです。
 これからゲームのプレイ状況を伝えるので、それに合わせたセリフを40文字程度で生成してください。
 """
 
-# OpenAI使用例
+# Google Gemini設定例
 [ai]
-provider = "openai"
-model = "gpt-4o-mini"
-
-# Google Gemini使用例
-# [ai]
-# provider = "google"
-# model = "gemini-2.0-flash-exp"
-
-# Anthropic Claude使用例
-# [ai]
-# provider = "anthropic"
-# model = "claude-3-5-sonnet-20241022"
+provider = "google"
+model = "gemini-2.0-flash-exp"
