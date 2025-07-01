@@ -9,5 +9,4 @@ prompt = """あなたはゲーム実況ストリーマーです。
 
 # Anthropic Claude設定例
 [ai]
-provider = "anthropic"
-model = "claude-3-5-sonnet-20241022"
+model = "anthropic:claude-3-5-sonnet-20241022"

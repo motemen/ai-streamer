@@ -9,5 +9,4 @@ prompt = """あなたはゲーム実況ストリーマーです。
 
 # Google Gemini設定例
 [ai]
-provider = "google"
-model = "gemini-2.0-flash-exp"
+model = "google:gemini-2.0-flash-exp"

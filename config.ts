@@ -8,18 +8,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const DEFAULT_VOICEVOX_ORIGIN = "http://localhost:50021";
-export const DEFAULT_AI_PROVIDER = "openai";
-export const DEFAULT_AI_MODEL = "gpt-4o-mini";
+export const DEFAULT_AI_MODEL = "openai:gpt-4o-mini";
 export const DEFAULT_AVATAR_IMAGE_DIR = path.join(__dirname, "avatars");
-
-// プロバイダー固有のデフォルトモデル
-const PROVIDER_DEFAULT_MODELS = {
-  openai: "gpt-4o-mini",
-  google: "gemini-2.0-flash-exp",
-  anthropic: "claude-3-5-sonnet-20241022",
-} as const;
-
-export type AIProvider = keyof typeof PROVIDER_DEFAULT_MODELS;
 
 const DEFAULT_PROMPT = `
 あなたはゲーム実況ストリーマーです。
@@ -36,22 +26,10 @@ export const ConfigSchema = z.object({
 
   ai: z
     .object({
-      provider: z.enum(["openai", "google", "anthropic"]).default(DEFAULT_AI_PROVIDER),
       model: z.string().default(DEFAULT_AI_MODEL),
     })
     .default({
-      provider: DEFAULT_AI_PROVIDER,
       model: DEFAULT_AI_MODEL,
-    })
-    .transform((data) => {
-      // プロバイダーが変更されたがモデルがデフォルトのままの場合、プロバイダー固有のデフォルトモデルを使用
-      if (data.model === DEFAULT_AI_MODEL && data.provider !== DEFAULT_AI_PROVIDER) {
-        return {
-          ...data,
-          model: PROVIDER_DEFAULT_MODELS[data.provider as AIProvider],
-        };
-      }
-      return data;
     }),
 
   prompt: z.string().default(DEFAULT_PROMPT),

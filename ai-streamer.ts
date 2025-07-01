@@ -5,7 +5,7 @@ import path from "node:path";
 import { openai } from '@ai-sdk/openai';
 import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
-import { streamText, CoreMessage, LanguageModel } from 'ai';
+import { streamText, CoreMessage, createProviderRegistry } from 'ai';
 import PQueue from "p-queue";
 
 import { z } from "zod";
@@ -23,7 +23,6 @@ import {
   ConfigSchema,
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
-  type AIProvider,
 } from "./config";
 
 const debug = createDebug("aistreamer");
@@ -53,18 +52,11 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     debug("Loaded configuration: %O", this.config);
   }
 
-  private getAIModel(provider: AIProvider, model: string): LanguageModel {
-    switch (provider) {
-      case "openai":
-        return openai(model);
-      case "google":
-        return google(model);
-      case "anthropic":
-        return anthropic(model);
-      default:
-        throw new Error(`Unsupported AI provider: ${provider}`);
-    }
-  }
+  private registry = createProviderRegistry({
+    openai,
+    google,
+    anthropic,
+  });
 
   private cancelCurrentTask() {
     if (this.currentAbortController) {
@@ -180,10 +172,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       },
     ];
 
-    const model = this.getAIModel(this.config.ai.provider, this.config.ai.model);
-    
     const result = await streamText({
-      model,
+      model: this.registry.languageModel(this.config.ai.model),
       messages,
       temperature: 1.2,
       abortSignal: signal,
