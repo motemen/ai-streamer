@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const DEFAULT_VOICEVOX_ORIGIN = "http://localhost:50021";
-export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+export const DEFAULT_AI_MODEL = "gpt-4o-mini";
 export const DEFAULT_AVATAR_IMAGE_DIR = path.join(__dirname, "avatars");
 
 const DEFAULT_PROMPT = `
@@ -24,12 +24,15 @@ export const ConfigSchema = z.object({
     })
     .optional(),
 
-  openai: z
+  ai: z
     .object({
-      model: z.string().default(DEFAULT_OPENAI_MODEL),
-      baseURL: z.string().optional(),
+      provider: z.string().default("openai"),
+      model: z.string().default(DEFAULT_AI_MODEL),
     })
-    .optional(),
+    .default({
+      provider: "openai",
+      model: DEFAULT_AI_MODEL,
+    }),
 
   prompt: z.string().default(DEFAULT_PROMPT),
   maxHistory: z.number().default(10),

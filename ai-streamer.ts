@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import EventEmitter from "node:events";
 import path from "node:path";
 
-import { OpenAI } from "openai";
+import { openai } from '@ai-sdk/openai';
+import { streamText, CoreMessage } from 'ai';
 import PQueue from "p-queue";
 
 import { z } from "zod";
@@ -18,15 +19,9 @@ import {
 
 import {
   ConfigSchema,
-  DEFAULT_OPENAI_MODEL,
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
 } from "./config";
-
-import {
-  ChatCompletionMessageParam,
-  ChatCompletionContentPartImage,
-} from "openai/resources/index";
 
 const debug = createDebug("aistreamer");
 
@@ -38,7 +33,6 @@ type AIStreamerEventMap = {
 
 class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   config: z.infer<typeof ConfigSchema>;
-  private openai: OpenAI | null = null;
   private history: string[] = [];
 
   // enqueueChatが並列に実行されると台詞が混ざるので、一つずつ実行する
@@ -143,18 +137,12 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     imageURL?: string,
     { signal }: { signal?: AbortSignal } = {}
   ): AsyncGenerator<string, void, unknown> {
-    if (!this.openai) {
-      const baseURL = this.config.openai?.baseURL;
-      this.openai = new OpenAI({
-        ...(baseURL ? { baseURL } : {}),
-      });
-    }
 
-    const messages: ChatCompletionMessageParam[] = [
+    const messages: CoreMessage[] = [
       { role: "system", content: generateSystemPrompt(this.config) },
 
       ...this.history.slice(-this.config.maxHistory).map(
-        (content): ChatCompletionMessageParam => ({
+        (content): CoreMessage => ({
           role: "assistant",
           content,
         })
@@ -167,34 +155,31 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
           ...(imageURL
             ? [
                 {
-                  type: "image_url",
-                  image_url: { url: imageURL },
-                } satisfies ChatCompletionContentPartImage,
+                  type: "image",
+                  image: imageURL,
+                },
               ]
             : []),
         ],
       },
     ];
 
-    const responseStream = await this.openai.chat.completions.create(
-      {
-        temperature: 1.2,
-        model: this.config.openai?.model ?? DEFAULT_OPENAI_MODEL,
-        messages,
-        stream: true,
-      },
-      signal ? { signal } : {}
-    );
+    const result = await streamText({
+      model: openai(this.config.ai.model),
+      messages,
+      temperature: 1.2,
+      abortSignal: signal,
+    });
 
     let buffer = "";
     let totalBuffer = "";
-    for await (const chunk of responseStream) {
+    for await (const textPart of result.textStream) {
       if (signal?.aborted) {
         break;
       }
 
-      buffer += chunk.choices[0].delta.content ?? "";
-      totalBuffer += chunk.choices[0].delta.content ?? "";
+      buffer += textPart;
+      totalBuffer += textPart;
 
       if (debug.enabled) {
         process.stderr.write("\r" + buffer);
