@@ -175,7 +175,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     const result = await streamText({
       model: this.registry.languageModel(this.config.ai.model),
       messages,
-      temperature: 1.2,
+      temperature: this.config.ai.temperature,
       abortSignal: signal,
     });
 

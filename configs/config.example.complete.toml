@@ -33,6 +33,13 @@ origin = "http://localhost:50021"
 # - Anthropic: "anthropic:claude-3-5-sonnet-20241022", "anthropic:claude-3-haiku-20240307"
 # デフォルト: "openai:gpt-4o-mini"
 model = "openai:gpt-4o-mini"
+# 応答の創造性を制御する温度パラメータ
+# 範囲: 0.0-2.0
+# 0.0: 最も確定的（同じ入力に対して一貫した応答）
+# 1.0: バランスの取れた応答（デフォルト）
+# 2.0: 最も創造的（予測不可能な応答）
+# デフォルト: 1.0
+temperature = 1.0
 
 # アバター設定
 # キャラクターのアバター画像に関する設定
