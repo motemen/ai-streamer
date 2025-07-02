@@ -2,10 +2,16 @@ import { readFile } from "node:fs/promises";
 import EventEmitter from "node:events";
 import path from "node:path";
 
-import { openai } from '@ai-sdk/openai';
-import { google } from '@ai-sdk/google';
-import { anthropic } from '@ai-sdk/anthropic';
-import { streamText, CoreMessage, createProviderRegistry } from 'ai';
+import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
+import { anthropic } from "@ai-sdk/anthropic";
+import {
+  streamText,
+  CoreMessage,
+  createProviderRegistry,
+  CoreAssistantMessage,
+  LanguageModelV1,
+} from "ai";
 import PQueue from "p-queue";
 
 import { z } from "zod";
@@ -47,16 +53,22 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     this.queue = new PQueue({ concurrency: 1 });
   }
 
-  configure(input: unknown) {
-    this.config = ConfigSchema.parse(input);
-    debug("Loaded configuration: %O", this.config);
-  }
-
-  private registry = createProviderRegistry({
+  private static providerRegistry = createProviderRegistry({
     openai,
     google,
     anthropic,
   });
+  private model: LanguageModelV1;
+
+  configure(input: unknown) {
+    this.config = ConfigSchema.parse(input);
+    debug("Loaded configuration: %O", this.config);
+
+    this.model = AIStreamer.providerRegistry.languageModel(
+      // @ts-expect-error 入力はstringなので無視しておく
+      this.config.ai.model
+    );
+  }
 
   private cancelCurrentTask() {
     if (this.currentAbortController) {
@@ -145,35 +157,30 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     imageURL?: string,
     { signal }: { signal?: AbortSignal } = {}
   ): AsyncGenerator<string, void, unknown> {
+    const historyMessages: CoreAssistantMessage[] = this.history
+      .slice(-this.config.maxHistory)
+      .map((content) => ({
+        role: "assistant",
+        content,
+      }));
 
     const messages: CoreMessage[] = [
       { role: "system", content: generateSystemPrompt(this.config) },
-
-      ...this.history.slice(-this.config.maxHistory).map(
-        (content): CoreMessage => ({
-          role: "assistant",
-          content,
-        })
-      ),
+      ...historyMessages,
 
       {
         role: "user",
-        content: [
-          { type: "text", text: prompt },
-          ...(imageURL
-            ? [
-                {
-                  type: "image",
-                  image: imageURL,
-                },
-              ]
-            : []),
-        ],
+        content: imageURL
+          ? [
+              { type: "text", text: prompt },
+              { type: "image", image: new URL(imageURL) },
+            ]
+          : [{ type: "text", text: prompt }],
       },
     ];
 
     const result = await streamText({
-      model: this.registry.languageModel(this.config.ai.model),
+      model: this.model,
       messages,
       temperature: this.config.ai.temperature,
       abortSignal: signal,
