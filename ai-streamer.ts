@@ -33,7 +33,6 @@ import {
 } from "./config";
 import {
   builtInHandlers,
-  defaultTools,
 } from "./tool-handlers";
 
 const debug = createDebug("aistreamer");
@@ -160,64 +159,42 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   private buildTools() {
     const tools: Record<string, ReturnType<typeof tool>> = {};
 
-    // デフォルトツールを追加
-    for (const [name, toolDef] of Object.entries(defaultTools)) {
-      const handler = builtInHandlers[toolDef.handler];
-      if (handler) {
-        tools[name] = tool({
-          description: toolDef.description,
-          parameters: toolDef.parameters,
-          execute: async (params) => handler(params, this),
-        });
-      }
-    }
+    // setAvatarツールをデフォルトで追加
+    tools.setAvatar = tool({
+      description: "AI Streamerのアバターを変更する",
+      parameters: z.object({
+        name: z.string().describe("アバター名"),
+      }),
+      execute: async (params) => builtInHandlers.setAvatar(params, this),
+    });
 
     // 設定ファイルからツールを追加
     if (this.config.tools) {
       for (const [name, toolDef] of Object.entries(this.config.tools)) {
-        const handler = builtInHandlers[toolDef.handler];
-        if (handler) {
-          // パラメータスキーマの構築
-          let parameters = z.object({});
-          if (toolDef.parameters) {
-            const schemaObj: Record<string, z.ZodTypeAny> = {};
-            for (const [key, def] of Object.entries(toolDef.parameters)) {
-              if (typeof def === 'object' && def.type) {
-                switch (def.type) {
-                  case 'string':
-                    schemaObj[key] = z.string();
-                    if (def.description) {
-                      schemaObj[key] = schemaObj[key].describe(def.description);
-                    }
-                    break;
-                  case 'number':
-                    schemaObj[key] = z.number();
-                    if (def.description) {
-                      schemaObj[key] = schemaObj[key].describe(def.description);
-                    }
-                    break;
-                  case 'boolean':
-                    schemaObj[key] = z.boolean();
-                    if (def.description) {
-                      schemaObj[key] = schemaObj[key].describe(def.description);
-                    }
-                    break;
-                }
-                if (def.optional) {
-                  schemaObj[key] = schemaObj[key].optional();
-                }
-              }
-            }
-            parameters = z.object(schemaObj);
-          }
-
+        // 設定ファイルでexecute関数が直接定義されている場合
+        if (toolDef.execute) {
           tools[name] = tool({
             description: toolDef.description,
-            parameters,
-            execute: async (params) => handler(params, this),
+            parameters: toolDef.parameters || z.object({}),
+            execute: async (params) => {
+              // 関数の第二引数にaiStreamerインスタンスを渡す
+              const result = await toolDef.execute!(params, this);
+              return typeof result === 'string' ? result : JSON.stringify(result);
+            },
           });
-        } else {
-          console.warn(`Handler '${toolDef.handler}' not found for tool '${name}'`);
+        }
+        // 後方互換性: handlerが指定されている場合
+        else if (toolDef.handler) {
+          const handler = builtInHandlers[toolDef.handler];
+          if (handler) {
+            tools[name] = tool({
+              description: toolDef.description,
+              parameters: toolDef.parameters || z.object({}),
+              execute: async (params) => handler(params, this),
+            });
+          } else {
+            console.warn(`Handler '${toolDef.handler}' not found for tool '${name}'`);
+          }
         }
       }
     }

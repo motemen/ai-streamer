@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MockLanguageModelV1 } from "ai/test";
+import { z } from "zod";
 import AIStreamer from "./ai-streamer";
 import { builtInHandlers } from "./tool-handlers";
 
@@ -67,44 +68,53 @@ describe("Tool Calling", () => {
     });
   });
 
-  it("デフォルトツールが利用可能", async () => {
+  it("デフォルトのsetAvatarツールが利用可能", async () => {
     aiStreamer.configure({
       ai: { model: "mock:test" },
     });
 
     const tools = aiStreamer["buildTools"]();
     
-    // デフォルトツールの存在を確認
+    // setAvatarツールの存在を確認
     expect(tools.setAvatar).toBeDefined();
-    expect(tools.getTime).toBeDefined();
-    
-    // ツールの実行を確認（モックモデルでの統合テストは難しいため）
-    const timeResult = await tools.getTime.execute({});
-    expect(timeResult).toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/);
   });
 
-  it("カスタムツールを設定から読み込める", async () => {
+  it("設定ファイル内で直接定義したツールを読み込める", async () => {
     aiStreamer.configure({
       ai: { model: "mock:test" },
       tools: {
+        getTime: {
+          description: "現在の時刻を取得する",
+          parameters: z.object({}),
+          execute: async () => {
+            const now = new Date();
+            return now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          },
+        },
         rollDice: {
           description: "サイコロを振る",
-          parameters: {
-            sides: {
-              type: "number",
-              description: "サイコロの面数",
-              optional: true,
-            },
+          parameters: z.object({
+            sides: z.number().default(6).describe("サイコロの面数"),
+          }),
+          execute: async ({ sides }) => {
+            const result = Math.floor(Math.random() * sides) + 1;
+            return `${sides}面のサイコロを振った結果: ${result}`;
           },
-          handler: "rollDice",
         },
       },
     });
 
     const tools = aiStreamer["buildTools"]();
+    expect(tools.getTime).toBeDefined();
     expect(tools.rollDice).toBeDefined();
     expect(tools.setAvatar).toBeDefined(); // デフォルトツールも存在
-    expect(tools.getTime).toBeDefined();
+    
+    // ツールの実行テスト
+    const timeResult = await tools.getTime.execute({});
+    expect(timeResult).toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/);
+    
+    const diceResult = await tools.rollDice.execute({ sides: 6 });
+    expect(diceResult).toMatch(/6面のサイコロを振った結果: [1-6]/);
   });
 
   it("setAvatarツールがフロントエンドコマンドを発行する", async () => {
@@ -118,21 +128,34 @@ describe("Tool Calling", () => {
     });
   });
 
-  it("getTimeツールが現在時刻を返す", async () => {
-    const result = await builtInHandlers.getTime({}, aiStreamer);
-    expect(result).toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/); // 日付形式を確認
+  it("setAvatarハンドラーが正しく動作する", async () => {
+    const result = await builtInHandlers.setAvatar({ name: "neutral" }, aiStreamer);
+    expect(result).toBe("アバターをneutralに変更しました");
   });
 
-  it("rollDiceツールがランダムな結果を返す", async () => {
-    const result = await builtInHandlers.rollDice({ sides: 6 }, aiStreamer);
-    expect(result).toMatch(/6面のサイコロを振った結果: [1-6]/);
-  });
+  it("aiStreamerインスタンスを使用するツール", async () => {
+    aiStreamer.configure({
+      ai: { model: "mock:test" },
+      tools: {
+        incrementCounter: {
+          description: "内部カウンターをインクリメント",
+          parameters: z.object({}),
+          execute: async (params, aiStreamer) => {
+            if (!aiStreamer._counter) {
+              aiStreamer._counter = 0;
+            }
+            aiStreamer._counter += 1;
+            return `カウンターの値: ${aiStreamer._counter}`;
+          },
+        },
+      },
+    });
 
-  it("getWeatherツールがモックの天気情報を返す", async () => {
-    const result = await builtInHandlers.getWeather(
-      { location: "東京" },
-      aiStreamer
-    );
-    expect(result).toMatch(/東京の天気は.+、気温は\d+度です/);
+    const tools = aiStreamer["buildTools"]();
+    const result1 = await tools.incrementCounter.execute({});
+    expect(result1).toBe("カウンターの値: 1");
+    
+    const result2 = await tools.incrementCounter.execute({});
+    expect(result2).toBe("カウンターの値: 2");
   });
 });

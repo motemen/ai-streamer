@@ -56,31 +56,59 @@ AI Streamerは`config.js`ファイルで設定をカスタマイズできます�
 
 ### ツール機能
 
-発話生成時にAIが外部ツール（Tool Calling）を使用できるようになりました。これにより、AIが時刻を確認したり、アバターを変更したりといった操作を自律的に行えます。
+発話生成時にAIが外部ツール（Tool Calling）を使用できるようになりました。これにより、AIが時刻を確認したり、アバターを変更したり、計算したりといった操作を自律的に行えます。
 
 デフォルトで以下のツールが利用可能です：
 - `setAvatar`: アバターを変更
-- `getTime`: 現在時刻を取得
 
-設定ファイルでカスタムツールを追加することもできます：
+設定ファイル内でツールを直接定義できます：
 
 ```js
+import { z } from "zod";
+
 export default {
   tools: {
-    rollDice: {
-      description: "サイコロを振る",
-      parameters: {
-        sides: {
-          type: "number",
-          description: "サイコロの面数",
-          optional: true,
-        },
+    // 現在時刻を取得
+    getTime: {
+      description: "現在の時刻を取得する",
+      parameters: z.object({}),
+      execute: async () => {
+        const now = new Date();
+        return now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
       },
-      handler: "rollDice", // tool-handlers.tsに定義された関数名
+    },
+
+    // サイコロを振る
+    rollDice: {
+      description: "指定された面数のサイコロを振る",
+      parameters: z.object({
+        sides: z.number().default(6).describe("サイコロの面数"),
+      }),
+      execute: async ({ sides }) => {
+        const result = Math.floor(Math.random() * sides) + 1;
+        return `${sides}面のサイコロを振った結果: ${result}`;
+      },
+    },
+
+    // aiStreamerインスタンスを使用する例
+    incrementCounter: {
+      description: "内部カウンターをインクリメント",
+      parameters: z.object({}),
+      execute: async (params, aiStreamer) => {
+        if (!aiStreamer._counter) {
+          aiStreamer._counter = 0;
+        }
+        aiStreamer._counter += 1;
+        return `カウンターの値: ${aiStreamer._counter}`;
+      },
     },
   },
 };
 ```
+
+- ツールの`execute`関数は`(params, aiStreamer) => Promise<string>`のシグネチャ
+- `parameters`にはZodスキーマを使用
+- `aiStreamer`インスタンスにアクセスして状態を操作可能
 
 詳細は`configs/config.example-tools.js`を参照してください。
 

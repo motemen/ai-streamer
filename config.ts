@@ -65,8 +65,10 @@ export const ConfigSchema = z.object({
       z.string(),
       z.object({
         description: z.string(),
-        parameters: z.record(z.any()).optional(),
-        handler: z.string(),
+        parameters: z.any().optional(), // ZodSchemaオブジェクトを受け入れ
+        execute: z.function().optional(), // 実行関数を直接定義可能
+        // 後方互換性のため
+        handler: z.string().optional(),
       })
     )
     .optional(),
