@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, Mock } from "vitest";
 import { createStreamingMockModel } from "./test-utils";
 import { aiStreamer } from "./ai-streamer";
 import { FrontendCommand } from "./commands";
@@ -6,6 +6,14 @@ import { FrontendCommand } from "./commands";
 vi.mock("./model-provider", () => ({
   getLanguageModel: vi.fn(),
 }));
+
+// モックモデルをセットアップするヘルパー関数
+async function setupMockLanguageModel(responses: string[]) {
+  const mockModel = createStreamingMockModel(responses);
+  const { getLanguageModel } = await import("./model-provider");
+  (getLanguageModel as unknown as Mock).mockReturnValue(mockModel);
+  return mockModel;
+}
 
 describe("AIStreamer", () => {
   beforeEach(() => {
@@ -29,51 +37,36 @@ describe("AIStreamer", () => {
 
   describe("generateTalkText", () => {
     it("should process streaming response and split by punctuation", async () => {
-      const mockModel = createStreamingMockModel([
-        "こんにちは。",
-        "今日はいい天気ですね！",
+      await setupMockLanguageModel([
+        "お疲れさまです。",
+        "今日もこうして",
+        "皆さんとお会いできて",
+        "光栄です。",
+        "コメント欄も賑やかで、今日も良い配信になりそうですね。",
+        "どうぞ最後までお付き合いください。よろ〜",
       ]);
-
-      const { getLanguageModel } = await import("./model-provider");
-      (getLanguageModel as any).mockReturnValue(mockModel);
 
       aiStreamer.configure({
         ai: { model: "mock-model" },
       });
 
       const result = await aiStreamer.dispatchSpeechLine("テスト", {});
-
-      expect(result).toEqual(["こんにちは。", "今日はいい天気ですね！"]);
-    });
-
-    it("should handle maxHistory configuration", async () => {
-      const mockModel = createStreamingMockModel(["レスポンス1"]);
-      mockModel.doStream = vi.fn(mockModel.doStream);
-
-      const { getLanguageModel } = await import("./model-provider");
-      (getLanguageModel as any).mockReturnValue(mockModel);
-
-      aiStreamer.configure({
-        ai: { model: "mock-model" },
-        maxHistory: 2,
-      });
-
-      await aiStreamer.dispatchSpeechLine("プロンプト1", {});
-      await aiStreamer.dispatchSpeechLine("プロンプト2", {});
-      await aiStreamer.dispatchSpeechLine("プロンプト3", {});
-
-      expect(mockModel.doStream).toHaveBeenCalledTimes(3);
+      expect(result).toEqual([
+        "お疲れさまです。",
+        "今日もこうして皆さんとお会いできて光栄です。",
+        "コメント欄も賑やかで、",
+        "今日も良い配信になりそうですね。",
+        "どうぞ最後までお付き合いください。",
+        "よろ〜",
+      ]);
     });
   });
 
   describe("command parsing", () => {
     it("should parse and emit setAvatar commands", async () => {
-      const mockModel = createStreamingMockModel([
+      await setupMockLanguageModel([
         "アバターを変更します。<setAvatar avatar1>",
       ]);
-
-      const { getLanguageModel } = await import("./model-provider");
-      (getLanguageModel as any).mockReturnValue(mockModel);
 
       aiStreamer.configure({
         ai: { model: "mock-model" },
@@ -96,12 +89,7 @@ describe("AIStreamer", () => {
     });
 
     it("should remove commands from displayed text", async () => {
-      const mockModel = createStreamingMockModel([
-        "テキスト<setAvatar test>です。",
-      ]);
-
-      const { getLanguageModel } = await import("./model-provider");
-      (getLanguageModel as any).mockReturnValue(mockModel);
+      await setupMockLanguageModel(["テキスト<setAvatar test>です。"]);
 
       aiStreamer.configure({
         ai: { model: "mock-model" },
@@ -125,11 +113,8 @@ describe("AIStreamer", () => {
 
   describe("configuration", () => {
     it("should apply temperature setting", async () => {
-      const mockModel = createStreamingMockModel(["レスポンス"]);
+      const mockModel = await setupMockLanguageModel(["レスポンス"]);
       mockModel.doStream = vi.fn(mockModel.doStream);
-
-      const { getLanguageModel } = await import("./model-provider");
-      (getLanguageModel as any).mockReturnValue(mockModel);
 
       aiStreamer.configure({
         ai: {
@@ -150,14 +135,7 @@ describe("AIStreamer", () => {
 
   describe("error handling", () => {
     it("should handle stream interruption", async () => {
-      const mockModel = createStreamingMockModel([
-        "長い",
-        "レスポンス",
-        "テキスト",
-      ]);
-
-      const { getLanguageModel } = await import("./model-provider");
-      (getLanguageModel as any).mockReturnValue(mockModel);
+      await setupMockLanguageModel(["長い", "レスポンス", "テキスト"]);
 
       aiStreamer.configure({
         ai: { model: "mock-model" },

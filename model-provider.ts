@@ -10,5 +10,7 @@ const providerRegistry = createProviderRegistry({
 });
 
 export function getLanguageModel(modelId: string): LanguageModelV1 {
-  return providerRegistry.languageModel(modelId);
+  return providerRegistry.languageModel(
+    modelId as `openai:${string}` | `google:${string}` | `anthropic:${string}`
+  );
 }
