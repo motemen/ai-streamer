@@ -2,13 +2,9 @@ import { readFile } from "node:fs/promises";
 import EventEmitter from "node:events";
 import path from "node:path";
 
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
-import { anthropic } from "@ai-sdk/anthropic";
 import {
   streamText,
   CoreMessage,
-  createProviderRegistry,
   CoreAssistantMessage,
   LanguageModelV1,
 } from "ai";
@@ -30,6 +26,7 @@ import {
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
 } from "./config";
+import { getLanguageModel } from "./model-provider";
 
 const debug = createDebug("aistreamer");
 
@@ -53,21 +50,13 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     this.queue = new PQueue({ concurrency: 1 });
   }
 
-  private static providerRegistry = createProviderRegistry({
-    openai,
-    google,
-    anthropic,
-  });
   private model: LanguageModelV1;
 
   configure(input: unknown) {
     this.config = ConfigSchema.parse(input);
     debug("Loaded configuration: %O", this.config);
 
-    this.model = AIStreamer.providerRegistry.languageModel(
-      // @ts-expect-error 入力はstringなので無視しておく
-      this.config.ai.model
-    );
+    this.model = getLanguageModel(this.config.ai.model);
   }
 
   private cancelCurrentTask() {
