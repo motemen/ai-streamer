@@ -50,6 +50,40 @@ sequenceDiagram
   end
 ```
 
+## 設定
+
+AI Streamerは`config.js`ファイルで設定をカスタマイズできます。
+
+### ツール機能
+
+発話生成時にAIが外部ツール（Tool Calling）を使用できるようになりました。これにより、AIが時刻を確認したり、アバターを変更したりといった操作を自律的に行えます。
+
+デフォルトで以下のツールが利用可能です：
+- `setAvatar`: アバターを変更
+- `getTime`: 現在時刻を取得
+
+設定ファイルでカスタムツールを追加することもできます：
+
+```js
+export default {
+  tools: {
+    rollDice: {
+      description: "サイコロを振る",
+      parameters: {
+        sides: {
+          type: "number",
+          description: "サイコロの面数",
+          optional: true,
+        },
+      },
+      handler: "rollDice", // tool-handlers.tsに定義された関数名
+    },
+  },
+};
+```
+
+詳細は`configs/config.example-tools.js`を参照してください。
+
 # Development
 
     open -a OBS --args --remote-debugging-port=9222 --remote-allow-origins=http://localhost:9222
