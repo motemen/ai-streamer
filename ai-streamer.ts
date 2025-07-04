@@ -30,6 +30,7 @@ import {
   ConfigSchema,
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
+  getAvailableAvatars,
 } from "./config";
 import {
   builtInHandlers,
@@ -159,9 +160,14 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   private buildTools() {
     const tools: Record<string, ReturnType<typeof tool>> = {};
 
+    // 利用可能なアバターのリストを取得
+    const availableAvatars = this.config.avatar.enabled 
+      ? getAvailableAvatars(this.config.avatar.directory)
+      : [];
+    
     // setAvatarツールをデフォルトで追加
     tools.setAvatar = tool({
-      description: "AI Streamerのアバターを変更する",
+      description: `AI Streamerのアバターを変更する。利用可能なアバター: ${availableAvatars.join(", ")}`,
       parameters: z.object({
         name: z.string().describe("アバター名"),
       }),

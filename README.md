@@ -52,7 +52,7 @@ sequenceDiagram
 
 ## 設定
 
-AI Streamerは`config.js`ファイルで設定をカスタマイズできます。
+設定ファイルをJSで書けば、AI Streamerの動作をカスタマイズできます。
 
 ### ツール機能
 
@@ -87,19 +87,6 @@ export default {
       execute: async ({ sides }) => {
         const result = Math.floor(Math.random() * sides) + 1;
         return `${sides}面のサイコロを振った結果: ${result}`;
-      },
-    },
-
-    // aiStreamerインスタンスを使用する例
-    incrementCounter: {
-      description: "内部カウンターをインクリメント",
-      parameters: z.object({}),
-      execute: async (params, aiStreamer) => {
-        if (!aiStreamer._counter) {
-          aiStreamer._counter = 0;
-        }
-        aiStreamer._counter += 1;
-        return `カウンターの値: ${aiStreamer._counter}`;
       },
     },
   },
