@@ -101,20 +101,17 @@ describe('generateSystemPrompt', () => {
     expect(result).toBe('テストプロンプト');
   });
 
-  it('should include avatar instructions when avatar config is not provided (default enabled)', () => {
+  it('should return the prompt as-is when avatar config is not provided', () => {
     const config = ConfigSchema.parse({
       prompt: 'テストプロンプト'
     });
 
     const result = generateSystemPrompt(config);
     
-    expect(result).toContain('テストプロンプト');
-    expect(result).toContain('setAvatar');
-    // デフォルトディレクトリにはdefault等のアバターが存在することを想定
-    expect(result).toContain('- default');
+    expect(result).toBe('テストプロンプト');
   });
 
-  it('should include avatar instructions when avatar is enabled', () => {
+  it('should return the prompt as-is even when avatar is enabled', () => {
     writeFileSync(path.join(tempDir, 'default.png'), '');
     writeFileSync(path.join(tempDir, '喜び.png'), '');
 
@@ -128,13 +125,10 @@ describe('generateSystemPrompt', () => {
 
     const result = generateSystemPrompt(config);
     
-    expect(result).toContain('テストプロンプト');
-    expect(result).toContain('setAvatar');
-    expect(result).toContain('- default');
-    expect(result).toContain('- 喜び');
+    expect(result).toBe('テストプロンプト');
   });
 
-  it('should use default avatar directory when not specified', () => {
+  it('should return the prompt as-is when using default avatar directory', () => {
     const config = ConfigSchema.parse({
       prompt: 'テストプロンプト',
       avatar: { enabled: true }
@@ -142,13 +136,10 @@ describe('generateSystemPrompt', () => {
 
     const result = generateSystemPrompt(config);
     
-    expect(result).toContain('テストプロンプト');
-    expect(result).toContain('setAvatar');
-    // デフォルトディレクトリにはdefault等のアバターが存在することを想定
-    expect(result).toContain('- default');
+    expect(result).toBe('テストプロンプト');
   });
 
-  it('should handle avatar directory with no avatars gracefully', () => {
+  it('should return the prompt as-is even with empty avatar directory', () => {
     // 空のディレクトリ
     const config = ConfigSchema.parse({
       prompt: 'テストプロンプト',
@@ -160,9 +151,6 @@ describe('generateSystemPrompt', () => {
 
     const result = generateSystemPrompt(config);
     
-    expect(result).toContain('テストプロンプト');
-    expect(result).toContain('setAvatar');
-    // アバターがない場合は空のリストになる
-    expect(result).not.toContain('- ');
+    expect(result).toBe('テストプロンプト');
   });
 });

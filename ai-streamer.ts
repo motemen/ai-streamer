@@ -21,7 +21,6 @@ import createDebug from "debug";
 import {
   FrontendCommand,
   UPDATE_CAPTION,
-  SET_AVATAR,
   PLAY_AUDIO,
   CLEAR_QUEUE,
 } from "./commands";
@@ -313,11 +312,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       return null;
     }
 
-    const [, command, args] = match;
-    if (command === "setAvatar") {
-      return { type: SET_AVATAR, avatar: args ?? "default" };
-    }
-
+    const [, command] = match;
+    // setAvatarはツールとして実装されたため、ここでは処理しない
     console.warn("Unknown command", command);
 
     return null;
