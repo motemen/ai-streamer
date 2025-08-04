@@ -7,19 +7,20 @@ import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import {
   streamText,
-  CoreMessage,
   createProviderRegistry,
-  CoreAssistantMessage,
-  LanguageModelV1,
+  type LanguageModel,
   tool,
+  type Tool,
+  AssistantModelMessage,
+  ModelMessage,
 } from "ai";
 import PQueue from "p-queue";
 
-import { z } from "zod";
+import type { z } from "zod";
 import createDebug from "debug";
 
 import {
-  FrontendCommand,
+  type FrontendCommand,
   UPDATE_CAPTION,
   PLAY_AUDIO,
   CLEAR_QUEUE,
@@ -29,11 +30,8 @@ import {
   ConfigSchema,
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
-  getAvailableAvatars,
 } from "./config";
-import {
-  builtInHandlers,
-} from "./tool-handlers";
+import { buildDefaultTools } from "./tool-handlers";
 
 const debug = createDebug("aistreamer");
 
@@ -62,7 +60,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     google,
     anthropic,
   });
-  private model: LanguageModelV1;
+  private model: LanguageModel;
 
   configure(input: unknown) {
     this.config = ConfigSchema.parse(input);
@@ -157,51 +155,30 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   }
 
   private buildTools() {
-    const tools: Record<string, ReturnType<typeof tool>> = {};
+    const tools: Record<string, Tool> = {};
 
-    // 利用可能なアバターのリストを取得
-    const availableAvatars = this.config.avatar.enabled 
-      ? getAvailableAvatars(this.config.avatar.directory)
-      : [];
-    
-    // setAvatarツールをデフォルトで追加
-    tools.setAvatar = tool({
-      description: `AI Streamerのアバターを変更する。利用可能なアバター: ${availableAvatars.join(", ")}`,
-      parameters: z.object({
-        name: z.string().describe("アバター名"),
-      }),
-      execute: async (params) => builtInHandlers.setAvatar(params, this),
-    });
+    const defaultTools = buildDefaultTools(this);
+
+    // ビルトインツールの追加
+    for (const [name, toolDef] of Object.entries(defaultTools)) {
+      if (toolDef === null) continue;
+      tools[name] = toolDef;
+    }
 
     // 設定ファイルからツールを追加
-    if (this.config.tools) {
-      for (const [name, toolDef] of Object.entries(this.config.tools)) {
-        // 設定ファイルでexecute関数が直接定義されている場合
-        if (toolDef.execute) {
-          tools[name] = tool({
-            description: toolDef.description,
-            parameters: toolDef.parameters || z.object({}),
-            execute: async (params) => {
-              // 関数の第二引数にaiStreamerインスタンスを渡す
-              const result = await toolDef.execute!(params, this);
-              return typeof result === 'string' ? result : JSON.stringify(result);
-            },
+    for (const [name, toolDef] of Object.entries(this.config.tools || {})) {
+      // 設定ファイルでexecute関数が直接定義されている場合
+      tools[name] = tool({
+        description: toolDef.description,
+        inputSchema: toolDef.inputSchema,
+        execute: async (params, options) => {
+          const result = await toolDef.execute(params, {
+            aiStreamer: this,
+            ...options,
           });
-        }
-        // 後方互換性: handlerが指定されている場合
-        else if (toolDef.handler) {
-          const handler = builtInHandlers[toolDef.handler];
-          if (handler) {
-            tools[name] = tool({
-              description: toolDef.description,
-              parameters: toolDef.parameters || z.object({}),
-              execute: async (params) => handler(params, this),
-            });
-          } else {
-            console.warn(`Handler '${toolDef.handler}' not found for tool '${name}'`);
-          }
-        }
-      }
+          return result;
+        },
+      });
     }
 
     return tools;
@@ -212,14 +189,14 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     imageURL?: string,
     { signal }: { signal?: AbortSignal } = {}
   ): AsyncGenerator<string, void, unknown> {
-    const historyMessages: CoreAssistantMessage[] = this.history
+    const historyMessages: AssistantModelMessage[] = this.history
       .slice(-this.config.maxHistory)
       .map((content) => ({
         role: "assistant",
         content,
       }));
 
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: "system", content: generateSystemPrompt(this.config) },
       ...historyMessages,
 
@@ -234,28 +211,31 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       },
     ];
 
+    debug("start streamText");
     const result = await streamText({
       model: this.model,
       messages,
       temperature: this.config.ai.temperature,
       abortSignal: signal,
       tools: this.buildTools(),
-      maxSteps: 5,
     });
 
     let buffer = "";
     let totalBuffer = "";
-    for await (const textPart of result.textStream) {
+    for await (const part of result.fullStream) {
+      if (part.type === "error") {
+        throw new Error(`Stream error: ${part.error}`);
+      }
+      if (part.type !== "text-delta") {
+        continue;
+      }
+
       if (signal?.aborted) {
         break;
       }
 
-      buffer += textPart;
-      totalBuffer += textPart;
-
-      if (debug.enabled) {
-        process.stderr.write("\r" + buffer);
-      }
+      buffer += part.text;
+      totalBuffer += part.text;
 
       const parts = buffer.split(PUNCTUATION_REGEX);
       buffer = parts.pop() || "";

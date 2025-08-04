@@ -24,7 +24,7 @@ export default {
       }),
       execute: async ({ sides }) => {
         const result = Math.floor(Math.random() * sides) + 1;
-        return `${sides}面のサイコロを振った結果: ${result}`;
+        return { result };
       },
     },
   },
