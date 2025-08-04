@@ -66,8 +66,8 @@ export const ConfigSchema = z.object({
       z.object({
         description: z.string(),
         inputSchema: z.any(), // zod Schema
-        execute: z.function(),
-      }),
+        execute: z.function().args(z.any(), z.any()).returns(z.any()),
+      })
     )
     .optional(),
 });

@@ -19,7 +19,7 @@ export default {
     // サイコロを振る
     rollDice: {
       description: "指定された面数のサイコロを振る",
-      parameters: z.object({
+      inputSchema: z.object({
         sides: z.number().default(6).describe("サイコロの面数"),
       }),
       execute: async ({ sides }) => {
