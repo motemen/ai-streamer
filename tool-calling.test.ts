@@ -49,7 +49,7 @@ describe("Tool Calling", () => {
       },
     };
 
-    const builtTools = aiStreamer["buildTools"]();
+    const builtTools = aiStreamer.buildTools();
     expect(builtTools.getTime).toBeDefined();
     expect(builtTools.rollDice).toBeDefined();
 
@@ -66,7 +66,7 @@ describe("Tool Calling", () => {
 
     if (tools.setAvatar) {
       expect(tools.setAvatar.description).toBe(
-        "Update current avatar for ai-streamer"
+        "Update current avatar for ai-streamer",
       );
       expect(tools.setAvatar.inputSchema).toBeDefined();
     }
@@ -84,7 +84,7 @@ describe("Tool Calling", () => {
         incrementCounter: {
           description: "内部カウンターをインクリメント",
           inputSchema: z.object({}),
-          execute: async (args: {}, aiStreamer: any) => {
+          execute: async (_args: {}, aiStreamer: any) => {
             if (!aiStreamer._counter) {
               aiStreamer._counter = 0;
             }
@@ -95,12 +95,12 @@ describe("Tool Calling", () => {
       },
     };
 
-    const tools = aiStreamer["buildTools"]();
+    const tools = aiStreamer.buildTools();
 
     // ツールの定義確認
     expect(tools.incrementCounter).toBeDefined();
     expect(tools.incrementCounter.description).toBe(
-      "内部カウンターをインクリメント"
+      "内部カウンターをインクリメント",
     );
   });
 });

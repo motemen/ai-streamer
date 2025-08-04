@@ -21,7 +21,7 @@ async function startOBSCapture() {
 
   while (true) {
     await new Promise((resolve) =>
-      setTimeout(resolve, parseInt(options.waitMilliseconds))
+      setTimeout(resolve, parseInt(options.waitMilliseconds)),
     );
 
     try {

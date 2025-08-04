@@ -11,8 +11,8 @@ import {
   type LanguageModel,
   tool,
   type Tool,
-  AssistantModelMessage,
-  ModelMessage,
+  type AssistantModelMessage,
+  type ModelMessage,
 } from "ai";
 import PQueue from "p-queue";
 
@@ -68,7 +68,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
     this.model = AIStreamer.providerRegistry.languageModel(
       // @ts-expect-error 入力はstringなので無視しておく
-      this.config.ai.model
+      this.config.ai.model,
     );
   }
 
@@ -85,8 +85,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       imageURL,
       interrupt,
       direct,
-    }: { imageURL?: string; interrupt?: boolean; direct?: boolean }
-  ): Promise<void | string[]> {
+    }: { imageURL?: string; interrupt?: boolean; direct?: boolean },
+  ): Promise<undefined | string[]> {
     if (interrupt) {
       this.cancelCurrentTask();
       this.queue.clear();
@@ -187,7 +187,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   private async *generateTalkText(
     prompt: string,
     imageURL?: string,
-    { signal }: { signal?: AbortSignal } = {}
+    { signal }: { signal?: AbortSignal } = {},
   ): AsyncGenerator<string, void, unknown> {
     const historyMessages: AssistantModelMessage[] = this.history
       .slice(-this.config.maxHistory)
@@ -250,7 +250,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
   private async synthesizeAudio(
     text: string,
-    { signal }: { signal?: AbortSignal } = {}
+    { signal }: { signal?: AbortSignal } = {},
   ): Promise<ArrayBuffer> {
     for (const { from, to } of this.config.replace) {
       text = text.replace(new RegExp(from, "g"), to);
@@ -260,12 +260,12 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       this.config.voicevox?.origin ?? DEFAULT_VOICEVOX_ORIGIN;
     const audioQueryResponse = await fetch(
       `${voicevoxOrigin}/audio_query?speaker=1&text=${encodeURIComponent(
-        text
+        text,
       )}`,
       {
         method: "POST",
         signal,
-      }
+      },
     ).catch((err) => {
       throw new Error(`POST ${voicevoxOrigin}/audio_query failed: ${err}`);
     });
@@ -278,7 +278,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(audioQuery),
         signal,
-      }
+      },
     ).catch((err) => {
       throw new Error(`POST ${voicevoxOrigin}/synthesis failed: ${err}`);
     });

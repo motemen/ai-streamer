@@ -41,7 +41,7 @@ export default function Director() {
   // ログエントリを更新する関数
   const updateLogEntry = (logId: string, update: Partial<LogEntry>) => {
     setLogs((prevLogs) =>
-      prevLogs.map((log) => (log.id === logId ? { ...log, ...update } : log))
+      prevLogs.map((log) => (log.id === logId ? { ...log, ...update } : log)),
     );
   };
 

@@ -5,5 +5,5 @@ import AIStreamer from "./AIStreamer.tsx";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AIStreamer />
-  </StrictMode>
+  </StrictMode>,
 );

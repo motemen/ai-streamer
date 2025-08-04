@@ -6,12 +6,12 @@ import {
   UPDATE_CAPTION,
   SET_AVATAR,
   PLAY_AUDIO,
-  UpdateCaptionCommand,
-  SetAvatarCommand,
-  PlayAudioCommand,
+  type UpdateCaptionCommand,
+  type SetAvatarCommand,
+  type PlayAudioCommand,
   CLEAR_QUEUE,
   CONFIGURE,
-  ConfigureCommand,
+  type ConfigureCommand,
 } from "../commands";
 
 function Caption({ text }: { text: string }) {
@@ -170,7 +170,7 @@ function AIStreamer() {
     // <https://developer.chrome.com/blog/autoplay?hl=ja>
     const audioContext = createAudioContext();
     const audioData = Uint8Array.from(atob(audioDataBase64), (c) =>
-      c.charCodeAt(0)
+      c.charCodeAt(0),
     ).buffer;
 
     const buffer = await audioContext.decodeAudioData(audioData);
