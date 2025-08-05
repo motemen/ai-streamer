@@ -84,7 +84,7 @@ describe("Tool Calling", () => {
         incrementCounter: {
           description: "内部カウンターをインクリメント",
           inputSchema: z.object({}),
-          execute: async (_args: {}, aiStreamer: any) => {
+          execute: async (_args: {}, { aiStreamer }: { aiStreamer: any }) => {
             if (!aiStreamer._counter) {
               aiStreamer._counter = 0;
             }
