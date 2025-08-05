@@ -1,13 +1,22 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { z } from "zod";
 import AIStreamer from "./ai-streamer";
 import { buildDefaultTools } from "./tool-handlers";
 
 describe("Tool Calling", () => {
   let aiStreamer: AIStreamer;
+  let tempDir: string;
 
   beforeEach(() => {
     aiStreamer = new AIStreamer();
+    tempDir = mkdtempSync(path.join(tmpdir(), "avatars-test-"));
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
   });
 
   it("デフォルトのsetAvatarツールが利用可能", async () => {
@@ -24,7 +33,7 @@ describe("Tool Calling", () => {
       ai: { model: "", temperature: 1 }, // 空のモデル設定
       prompt: "",
       maxHistory: 10,
-      avatar: { enabled: true, directory: "" },
+      avatar: { enabled: true, directory: tempDir },
       replace: [],
       tools: {
         getTime: {
@@ -78,7 +87,7 @@ describe("Tool Calling", () => {
       ai: { model: "", temperature: 1 },
       prompt: "",
       maxHistory: 10,
-      avatar: { enabled: true, directory: "" },
+      avatar: { enabled: true, directory: tempDir },
       replace: [],
       tools: {
         incrementCounter: {

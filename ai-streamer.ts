@@ -61,15 +61,18 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     anthropic,
   });
   private model: LanguageModel;
+  private tools: Record<string, Tool> = {};
 
   configure(input: unknown) {
     this.config = ConfigSchema.parse(input);
     debug("Loaded configuration: %O", this.config);
 
     this.model = AIStreamer.providerRegistry.languageModel(
-      // @ts-expect-error 入力はstringなので無視しておく
-      this.config.ai.model,
+      this.config.ai.model as Parameters<
+        typeof AIStreamer.providerRegistry.languageModel
+      >[0],
     );
+    this.tools = this.buildTools();
   }
 
   private cancelCurrentTask() {
@@ -149,7 +152,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   async getAvatarImage(name: string): Promise<Buffer | null> {
     const filePath = path.join(this.config.avatar.directory, name);
     return readFile(filePath).catch((err) => {
-      console.warn(`Avatar image ${filePath} not found`, err);
+      debug(`Avatar image ${filePath} not found`, err);
       return null;
     });
   }
@@ -217,7 +220,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       messages,
       temperature: this.config.ai.temperature,
       abortSignal: signal,
-      tools: this.buildTools(),
+      tools: this.tools,
     });
 
     let buffer = "";
@@ -267,8 +270,14 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         signal,
       },
     ).catch((err) => {
-      throw new Error(`POST ${voicevoxOrigin}/audio_query failed: ${err}`);
+      throw new Error(`VOICEVOX API call failed: ${err.message}`);
     });
+
+    if (!audioQueryResponse.ok) {
+      throw new Error(
+        `VOICEVOX API returned ${audioQueryResponse.status}: ${await audioQueryResponse.text()}`,
+      );
+    }
     const audioQuery = await audioQueryResponse.json();
 
     const synthesisResponse = await fetch(
@@ -280,8 +289,14 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         signal,
       },
     ).catch((err) => {
-      throw new Error(`POST ${voicevoxOrigin}/synthesis failed: ${err}`);
+      throw new Error(`VOICEVOX API call failed: ${err.message}`);
     });
+
+    if (!synthesisResponse.ok) {
+      throw new Error(
+        `VOICEVOX API returned ${synthesisResponse.status}: ${await synthesisResponse.text()}`,
+      );
+    }
 
     return synthesisResponse.arrayBuffer();
   }
@@ -293,8 +308,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
 
     const [, command] = match;
-    // setAvatarはツールとして実装されたため、ここでは処理しない
-    console.warn("Unknown command", command);
+    debug("Unknown command", command);
 
     return null;
   }

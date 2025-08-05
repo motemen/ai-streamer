@@ -71,7 +71,7 @@ export default {
     // 現在時刻を取得
     getTime: {
       description: "現在の時刻を取得する",
-      parameters: z.object({}),
+      inputSchema: z.object({}),
       execute: async () => {
         const now = new Date();
         return now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
@@ -81,21 +81,23 @@ export default {
     // サイコロを振る
     rollDice: {
       description: "指定された面数のサイコロを振る",
-      parameters: z.object({
+      inputSchema: z.object({
         sides: z.number().default(6).describe("サイコロの面数"),
       }),
       execute: async ({ sides }) => {
         const result = Math.floor(Math.random() * sides) + 1;
-        return `${sides}面のサイコロを振った結果: ${result}`;
+        return { result }; // オブジェクトを返す例
       },
     },
   },
 };
 ```
 
-- ツールの`execute`関数は`(params, aiStreamer) => Promise<string>`のシグネチャ
-- `parameters`にはZodスキーマを使用
-- `aiStreamer`インスタンスにアクセスして状態を操作可能
+- ツールの`execute`関数のシグネチャは `(params, context) => Promise<any>` です。
+  - `params`: `inputSchema`で定義された入力オブジェクトです。
+  - `context`: `{ aiStreamer, ... }` のように、`aiStreamer`インスタンスを含むコンテキストオブジェクトです。
+- 戻り値は、AIに渡されるJSONシリアライズ可能な任意のオブジェクトです。
+- `inputSchema`にはZodスキーマを使用します。
 
 詳細は`configs/config.example-tools.js`を参照してください。
 
