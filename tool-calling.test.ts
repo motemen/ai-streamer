@@ -93,12 +93,15 @@ describe("Tool Calling", () => {
         incrementCounter: {
           description: "内部カウンターをインクリメント",
           inputSchema: z.object({}),
-          execute: async (_args: {}, { aiStreamer }: { aiStreamer: any }) => {
-            if (!aiStreamer._counter) {
-              aiStreamer._counter = 0;
+          execute: async (
+            _args: {},
+            { aiStreamer }: { aiStreamer: AIStreamer },
+          ) => {
+            if (!aiStreamer.store._counter) {
+              aiStreamer.store._counter = 0;
             }
-            aiStreamer._counter += 1;
-            return `カウンターの値: ${aiStreamer._counter}`;
+            aiStreamer.store._counter += 1;
+            return `カウンターの値: ${aiStreamer.store._counter}`;
           },
         },
       },

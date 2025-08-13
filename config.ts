@@ -28,6 +28,7 @@ export const ConfigSchema = z.object({
     .object({
       model: z.string().default(DEFAULT_AI_MODEL),
       temperature: z.number().min(0).max(2).default(1.0),
+      providerOptions: z.unknown().optional(),
     })
     .default({
       model: DEFAULT_AI_MODEL,

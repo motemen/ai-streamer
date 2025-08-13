@@ -13,6 +13,7 @@ import {
   type Tool,
   type AssistantModelMessage,
   type ModelMessage,
+  stepCountIs,
 } from "ai";
 import PQueue from "p-queue";
 
@@ -48,6 +49,9 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
   // enqueueChatが並列に実行されると台詞が混ざるので、一つずつ実行する
   private queue: PQueue;
   private currentAbortController: AbortController | null = null;
+
+  // tool から自由に扱ってよい領域
+  public store: Record<string, any> = {};
 
   constructor() {
     super({ captureRejections: true });
@@ -89,7 +93,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       interrupt,
       direct,
     }: { imageURL?: string; interrupt?: boolean; direct?: boolean },
-  ): Promise<undefined | string[]> {
+  ): Promise<void | string[]> {
     if (interrupt) {
       this.cancelCurrentTask();
       this.queue.clear();
@@ -118,13 +122,15 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
 
           const commands: FrontendCommand[] = [];
 
-          text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
-            const command = this.parseCommand(match);
-            if (command) {
-              commands.push(command);
-            }
-            return "";
-          });
+          text = text
+            .replace(/\s*<[^>]+>\s*/gi, (match) => {
+              const command = this.parseCommand(match);
+              if (command) {
+                commands.push(command);
+              }
+              return "";
+            })
+            .trim();
 
           commands.push({ type: UPDATE_CAPTION, caption: text });
 
@@ -214,13 +220,16 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       },
     ];
 
-    debug("start streamText");
-    const result = await streamText({
+    debug("streamText start");
+
+    const result = streamText({
       model: this.model,
       messages,
+      providerOptions: this.config.ai.providerOptions as any,
       temperature: this.config.ai.temperature,
       abortSignal: signal,
       tools: this.tools,
+      stopWhen: stepCountIs(5), // allow both tool-calling and text output
     });
 
     let buffer = "";
@@ -230,6 +239,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         throw new Error(`Stream error: ${part.error}`);
       }
       if (part.type !== "text-delta") {
+        debug("streamText", { partType: part.type });
         continue;
       }
 
@@ -256,8 +266,12 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     { signal }: { signal?: AbortSignal } = {},
   ): Promise<ArrayBuffer> {
     for (const { from, to } of this.config.replace) {
-      text = text.replace(new RegExp(from, "g"), to);
+      text = text.replace(new RegExp(from, "gi"), to);
     }
+
+    text = text.replace(/\s+/g, "").trim();
+
+    debug("voicevox", { text });
 
     const voicevoxOrigin =
       this.config.voicevox?.origin ?? DEFAULT_VOICEVOX_ORIGIN;
