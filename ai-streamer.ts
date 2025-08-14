@@ -77,32 +77,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
   }
 
-  async dispatchSpeechLine(
-    prompt: string,
-    {
-      imageURL,
-      interrupt,
-      direct,
-    }: { imageURL?: string; interrupt?: boolean; direct?: boolean }
-  ): Promise<void | string[]> {
-    if (interrupt) {
-      this.cancelCurrentTask();
-      this.queue.clear();
-      this.emit("frontendCommand", { type: CLEAR_QUEUE });
-    }
-
-    return await this.queue.add(async (): Promise<string[]> => {
-      const result: string[] = [];
-      for await (const text of this.dispatchSpeechLineStream(prompt, {
-        imageURL,
-        interrupt: false, // 既にinterrupt処理済み
-        direct,
-      })) {
-        result.push(text);
-      }
-      return result;
-    });
-  }
+  
 
   async *dispatchSpeechLineStream(
     prompt: string,

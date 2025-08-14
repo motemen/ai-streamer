@@ -135,8 +135,45 @@ app.post("/api/idle", async (c) => {
     return c.json({ error: "No idle prompt configured" }, { status: 400 });
   }
 
-  const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt, {});
-  return c.json({ message: "ok", speechLine });
+  // ストリーミングレスポンスを返す
+  c.header("Content-Type", "application/x-ndjson");
+  c.header("Transfer-Encoding", "chunked");
+
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const text of aiStreamer.dispatchSpeechLineStream(
+          idlePrompt,
+          {}
+        )) {
+          const jsonLine =
+            JSON.stringify({ text, type: "speech_chunk" }) + "\n";
+          controller.enqueue(encoder.encode(jsonLine));
+        }
+
+        // 完了を示すメッセージ
+        const completeMessage = JSON.stringify({ type: "complete" }) + "\n";
+        controller.enqueue(encoder.encode(completeMessage));
+        controller.close();
+      } catch (error) {
+        const errorMessage =
+          JSON.stringify({
+            type: "error",
+            error: error instanceof Error ? error.message : "Unknown error",
+          }) + "\n";
+        controller.enqueue(encoder.encode(errorMessage));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "application/x-ndjson",
+      "Transfer-Encoding": "chunked",
+    },
+  });
 });
 
 app.get("/api/avatar/:name", async (c) => {
