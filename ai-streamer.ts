@@ -92,56 +92,77 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
 
     return await this.queue.add(async (): Promise<string[]> => {
-      const abortController = new AbortController();
-      this.currentAbortController = abortController;
-
       const result: string[] = [];
+      for await (const text of this.dispatchSpeechLineStream(prompt, {
+        imageURL,
+        interrupt: false, // 既にinterrupt処理済み
+        direct,
+      })) {
+        result.push(text);
+      }
+      return result;
+    });
+  }
 
-      try {
-        const textChunks = direct
-          ? prompt.split(PUNCTUATION_REGEX)
-          : this.generateTalkText(prompt, imageURL, {
-              signal: abortController.signal,
-            });
+  async *dispatchSpeechLineStream(
+    prompt: string,
+    {
+      imageURL,
+      interrupt,
+      direct,
+    }: { imageURL?: string; interrupt?: boolean; direct?: boolean }
+  ): AsyncGenerator<string, void, unknown> {
+    if (interrupt) {
+      this.cancelCurrentTask();
+      this.queue.clear();
+      this.emit("frontendCommand", { type: CLEAR_QUEUE });
+    }
 
-        for await (let text of textChunks) {
-          result.push(text);
+    const abortController = new AbortController();
+    this.currentAbortController = abortController;
 
-          if (abortController.signal.aborted) {
-            break;
-          }
-
-          const commands: FrontendCommand[] = [];
-
-          text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
-            const command = this.parseCommand(match);
-            if (command) {
-              commands.push(command);
-            }
-            return "";
-          });
-
-          commands.push({ type: UPDATE_CAPTION, caption: text });
-
-          const audioBuffer = await this.synthesizeAudio(text, {
+    try {
+      const textChunks = direct
+        ? prompt.split(PUNCTUATION_REGEX)
+        : this.generateTalkText(prompt, imageURL, {
             signal: abortController.signal,
           });
 
-          for (const command of commands) {
-            this.emit("frontendCommand", command);
+      for await (let text of textChunks) {
+        if (abortController.signal.aborted) {
+          break;
+        }
+
+        const commands: FrontendCommand[] = [];
+
+        text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
+          const command = this.parseCommand(match);
+          if (command) {
+            commands.push(command);
           }
+          return "";
+        });
 
-          const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
-          this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
+        commands.push({ type: UPDATE_CAPTION, caption: text });
+
+        const audioBuffer = await this.synthesizeAudio(text, {
+          signal: abortController.signal,
+        });
+
+        for (const command of commands) {
+          this.emit("frontendCommand", command);
         }
-      } finally {
-        if (this.currentAbortController === abortController) {
-          this.currentAbortController = null;
-        }
+
+        const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
+        this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
+
+        yield text;
       }
-
-      return result;
-    });
+    } finally {
+      if (this.currentAbortController === abortController) {
+        this.currentAbortController = null;
+      }
+    }
   }
 
   async getAvatarImage(name: string): Promise<Buffer | null> {
