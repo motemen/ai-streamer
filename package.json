@@ -23,7 +23,8 @@
     "test": "pnpm run test:unit --run && pnpm run test:e2e",
     "test:unit": "vitest",
     "test:e2e": "vite build && playwright test",
-    "generate": "hcm './src/**/*.module.css'"
+    "generate": "hcm './src/**/*.module.css'",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.2",
