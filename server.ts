@@ -13,14 +13,20 @@ import { aiStreamer } from "./ai-streamer.js";
 import type { ConfigureCommand, FrontendCommand } from "./commands.js";
 import { mcpServer } from "./mcp.js";
 
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
 const debug = createDebug("aistreamer");
 
 const app = new Hono();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 app.use(
   "*",
   serveStatic({
-    root: "./dist",
+    root: import.meta.url.endsWith('.ts') ? "./dist" : __dirname,
     rewriteRequestPath: (path) =>
       ({
         "/director": "/director.html",
