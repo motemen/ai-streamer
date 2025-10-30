@@ -5,5 +5,5 @@ import Director from "./Director";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Director />
-  </StrictMode>
+  </StrictMode>,
 );

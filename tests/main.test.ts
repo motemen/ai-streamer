@@ -83,7 +83,7 @@ test("長い台詞の読み上げ中につぎの台詞が来ても混ざらな�
     const mut = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         (window._talkHistory = window._talkHistory || []).push(
-          mutation.target.textContent ?? ""
+          mutation.target.textContent ?? "",
         );
       }
     });

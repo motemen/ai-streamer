@@ -1,4 +1,4 @@
-import { Config } from "./config";
+import type { Config } from "./config";
 
 export const CONFIGURE = "CONFIGURE";
 // TODO: UPDATE_CAPTIONとPLAY_AUDIOは合体させる

@@ -10,7 +10,7 @@ import createDebug from "debug";
 import { z } from "zod";
 
 import { aiStreamer } from "./ai-streamer";
-import { ConfigureCommand, FrontendCommand } from "./commands";
+import type { ConfigureCommand, FrontendCommand } from "./commands";
 import { mcpServer } from "./mcp";
 
 const debug = createDebug("aistreamer");
@@ -22,10 +22,10 @@ app.use(
   serveStatic({
     root: "./dist",
     rewriteRequestPath: (path) =>
-    ({
-      "/director": "/director.html",
-    }[path] ?? path),
-  })
+      ({
+        "/director": "/director.html",
+      })[path] ?? path,
+  }),
 );
 
 app.get("/api/stream", (c) => {
@@ -65,7 +65,7 @@ app.get("/api/stream", (c) => {
     async (error, stream) => {
       console.error("stream error", error);
       stream.close();
-    }
+    },
   );
 });
 
@@ -82,7 +82,7 @@ app.post("/api/chat", async (c) => {
   if (!success) {
     return c.json(
       { error: "Invalid payload", details: error },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -225,7 +225,7 @@ app.post("/api/mcp", async (c) => {
         },
         id: null,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 });
@@ -237,7 +237,7 @@ app.on(["GET", "DELETE"], "/api/mcp", (c) => {
       error: { code: -32000, message: "Method not allowed." },
       id: null,
     },
-    { status: 405 }
+    { status: 405 },
   );
 });
 

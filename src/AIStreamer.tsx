@@ -6,12 +6,12 @@ import {
   UPDATE_CAPTION,
   SET_AVATAR,
   PLAY_AUDIO,
-  UpdateCaptionCommand,
-  SetAvatarCommand,
-  PlayAudioCommand,
+  type UpdateCaptionCommand,
+  type SetAvatarCommand,
+  type PlayAudioCommand,
   CLEAR_QUEUE,
   CONFIGURE,
-  ConfigureCommand,
+  type ConfigureCommand,
 } from "../commands";
 
 function Caption({ text }: { text: string }) {
@@ -45,6 +45,7 @@ const queue = new PQueue({ concurrency: 1 });
 
 let idleTimer: NodeJS.Timeout | null = null;
 let idleTimeout = 0;
+let idleRunning = false;
 
 queue.on("error", (err) => {
   console.error("queue error", err);
@@ -54,9 +55,10 @@ queue.on("error", (err) => {
 function notifyIdleLater() {
   if (idleTimeout) {
     idleTimer = setTimeout(() => {
-      if (queue.size === 0 && queue.pending === 0) {
+      if (queue.size === 0 && queue.pending === 0 && !idleRunning) {
         console.debug("idle");
-        queue.add(() => fetch("/api/idle", { method: "POST" }));
+        queue.add(() => void fetch("/api/idle", { method: "POST" }));
+        idleRunning = true;
       }
     }, idleTimeout);
   }
@@ -125,6 +127,7 @@ function AIStreamer() {
       console.log("UPDATE_CAPTION", event.data);
       const data = JSON.parse(event.data) as unknown as UpdateCaptionCommand;
       queue.add(() => {
+        idleRunning = false;
         console.log("setCaption", data.caption);
         setCaption(data.caption);
 
@@ -134,7 +137,7 @@ function AIStreamer() {
         clearCaptionTimer = setTimeout(() => {
           console.log("clearCaption");
           setCaption("");
-        }, 3000);
+        }, 5000);
       });
     });
 
@@ -170,7 +173,7 @@ function AIStreamer() {
     // <https://developer.chrome.com/blog/autoplay?hl=ja>
     const audioContext = createAudioContext();
     const audioData = Uint8Array.from(atob(audioDataBase64), (c) =>
-      c.charCodeAt(0)
+      c.charCodeAt(0),
     ).buffer;
 
     const buffer = await audioContext.decodeAudioData(audioData);

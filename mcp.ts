@@ -17,7 +17,7 @@ mcpServer.tool(
       .optional()
       .default(false)
       .describe(
-        "textを直接、台詞として扱う。falseの場合はAIに台詞を生成させる"
+        "textを直接、台詞として扱う。falseの場合はAIに台詞を生成させる",
       ),
     interrupt: z
       .boolean()
@@ -46,5 +46,5 @@ mcpServer.tool(
         },
       ],
     };
-  }
+  },
 );
