@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2023"
+    ],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "server.ts",
+    "ai-streamer.ts",
+    "commands.ts",
+    "config.ts",
+    "mcp.ts",
+    "tool-handlers.ts",
+    "bin/**/*.ts"
+  ]
+}

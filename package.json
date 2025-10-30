@@ -1,13 +1,21 @@
 {
-  "name": "ai-streamer",
-  "private": true,
-  "version": "0.0.0",
+  "name": "@motemen/ai-streamer",
+  "version": "0.0.1",
   "type": "module",
+  "bin": {
+    "ai-streamer": "./dist/bin/ai-streamer.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "run-p 'dev:server {@}' 'dev:client'",
     "dev:server": "tsx server.ts",
     "dev:client": "vite",
-    "build": "tsc -b && vite build",
+    "build": "run-s build:client build:server build:avatars",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:client": "vite build",
+    "build:avatars": "cp -r ./avatars ./dist/avatars",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "format": "biome format --fix",

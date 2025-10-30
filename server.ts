@@ -9,9 +9,9 @@ import { loadConfig } from "c12";
 import createDebug from "debug";
 import { z } from "zod";
 
-import { aiStreamer } from "./ai-streamer";
-import type { ConfigureCommand, FrontendCommand } from "./commands";
-import { mcpServer } from "./mcp";
+import { aiStreamer } from "./ai-streamer.js";
+import type { ConfigureCommand, FrontendCommand } from "./commands.js";
+import { mcpServer } from "./mcp.js";
 
 const debug = createDebug("aistreamer");
 

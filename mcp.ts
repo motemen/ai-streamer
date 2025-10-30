@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { aiStreamer } from "./ai-streamer";
+import { aiStreamer } from "./ai-streamer.js";
 
 export const mcpServer = new McpServer({
   name: "AI Streamer MCP",
@@ -31,7 +31,7 @@ mcpServer.tool(
         direct,
         interrupt,
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error(`[error] MCP report_status: ${err}`);
       });
 

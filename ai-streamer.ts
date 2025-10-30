@@ -25,14 +25,14 @@ import {
   UPDATE_CAPTION,
   PLAY_AUDIO,
   CLEAR_QUEUE,
-} from "./commands";
+} from "./commands.js";
 
 import {
   ConfigSchema,
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
-} from "./config";
-import { buildDefaultTools } from "./tool-handlers";
+} from "./config.js";
+import { buildDefaultTools } from "./tool-handlers.js";
 
 const debug = createDebug("aistreamer");
 
@@ -64,7 +64,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     google,
     anthropic,
   });
-  private model: LanguageModel;
+  private model: LanguageModel = null as any;
   private tools: Record<string, Tool> = {};
 
   configure(input: unknown) {
@@ -110,8 +110,8 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         const textChunks = direct
           ? prompt.split(PUNCTUATION_REGEX)
           : this.generateTalkText(prompt, imageURL, {
-              signal: abortController.signal,
-            });
+            signal: abortController.signal,
+          });
 
         for await (let text of textChunks) {
           result.push(text);
@@ -178,10 +178,10 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     for (const [name, toolDef] of Object.entries(this.config.tools || {})) {
       // 設定ファイルでexecute関数が直接定義されている場合
       tools[name] = tool({
-        description: toolDef.description,
-        inputSchema: toolDef.inputSchema,
+        description: (toolDef as any).description,
+        inputSchema: (toolDef as any).inputSchema,
         execute: async (params, options) => {
-          const result = await toolDef.execute(params, {
+          const result = await (toolDef as any).execute(params, {
             aiStreamer: this,
             ...options,
           });
@@ -213,9 +213,9 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
         role: "user",
         content: imageURL
           ? [
-              { type: "text", text: prompt },
-              { type: "image", image: new URL(imageURL) },
-            ]
+            { type: "text", text: prompt },
+            { type: "image", image: new URL(imageURL) },
+          ]
           : [{ type: "text", text: prompt }],
       },
     ];
