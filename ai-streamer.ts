@@ -16,6 +16,7 @@ import {
   stepCountIs,
 } from "ai";
 import PQueue from "p-queue";
+import { simulateReadableStream } from "ai/test";
 
 import type { z } from "zod";
 import createDebug from "debug";
@@ -86,73 +87,65 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
   }
 
-  async dispatchSpeechLine(
+  async *dispatchSpeechLineStream(
     prompt: string,
     {
       imageURL,
       interrupt,
       direct,
     }: { imageURL?: string; interrupt?: boolean; direct?: boolean },
-  ): Promise<void | string[]> {
+  ): AsyncGenerator<string, void, unknown> {
     if (interrupt) {
       this.cancelCurrentTask();
       this.queue.clear();
       this.emit("frontendCommand", { type: CLEAR_QUEUE });
     }
 
-    return await this.queue.add(async (): Promise<string[]> => {
-      const abortController = new AbortController();
-      this.currentAbortController = abortController;
+    const abortController = new AbortController();
+    this.currentAbortController = abortController;
 
-      const result: string[] = [];
-
-      try {
-        const textChunks = direct
-          ? prompt.split(PUNCTUATION_REGEX)
-          : this.generateTalkText(prompt, imageURL, {
-              signal: abortController.signal,
-            });
-
-        for await (let text of textChunks) {
-          result.push(text);
-
-          if (abortController.signal.aborted) {
-            break;
-          }
-
-          const commands: FrontendCommand[] = [];
-
-          text = text
-            .replace(/\s*<[^>]+>\s*/gi, (match) => {
-              const command = this.parseCommand(match);
-              if (command) {
-                commands.push(command);
-              }
-              return "";
-            })
-            .trim();
-
-          commands.push({ type: UPDATE_CAPTION, caption: text });
-
-          const audioBuffer = await this.synthesizeAudio(text, {
+    try {
+      const textChunks = direct
+        ? prompt.split(PUNCTUATION_REGEX)
+        : this.generateTalkText(prompt, imageURL, {
             signal: abortController.signal,
           });
 
-          for (const command of commands) {
-            this.emit("frontendCommand", command);
+      for await (let text of textChunks) {
+        if (abortController.signal.aborted) {
+          break;
+        }
+
+        const commands: FrontendCommand[] = [];
+
+        text = text.replace(/\s*<[^>]+>\s*/gi, (match) => {
+          const command = this.parseCommand(match);
+          if (command) {
+            commands.push(command);
           }
+          return "";
+        });
 
-          const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
-          this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
+        commands.push({ type: UPDATE_CAPTION, caption: text });
+
+        const audioBuffer = await this.synthesizeAudio(text, {
+          signal: abortController.signal,
+        });
+
+        for (const command of commands) {
+          this.emit("frontendCommand", command);
         }
-      } finally {
-        if (this.currentAbortController === abortController) {
-          this.currentAbortController = null;
-        }
+
+        const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
+        this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
+
+        yield text;
       }
-
-      return result;
-    });
+    } finally {
+      if (this.currentAbortController === abortController) {
+        this.currentAbortController = null;
+      }
+    }
   }
 
   async getAvatarImage(name: string): Promise<Buffer | null> {
@@ -198,6 +191,47 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     imageURL?: string,
     { signal }: { signal?: AbortSignal } = {},
   ): AsyncGenerator<string, void, unknown> {
+    const scripted = this.config.testing?.scripted?.find(
+      (entry) => entry.match === prompt,
+    );
+    if (scripted) {
+      const initialDelayInMs =
+        scripted.initialDelayMs === undefined ? 0 : scripted.initialDelayMs;
+      const chunkDelayInMs =
+        scripted.chunkDelayMs === undefined ? 0 : scripted.chunkDelayMs;
+      const stream = simulateReadableStream<string>({
+        chunks: scripted.chunks,
+        initialDelayInMs,
+        chunkDelayInMs,
+      });
+      const reader = stream.getReader();
+      let totalBuffer = "";
+      let cancelled = false;
+      try {
+        while (true) {
+          if (signal?.aborted) {
+            await reader.cancel();
+            cancelled = true;
+            break;
+          }
+          const { value, done } = await reader.read();
+          if (done) {
+            break;
+          }
+          totalBuffer += value;
+          yield value;
+        }
+      } finally {
+        if (!cancelled) {
+          reader.releaseLock();
+        }
+      }
+      if (totalBuffer) {
+        this.history.push(totalBuffer);
+      }
+      return;
+    }
+
     const historyMessages: AssistantModelMessage[] = this.history
       .slice(-this.config.maxHistory)
       .map((content) => ({

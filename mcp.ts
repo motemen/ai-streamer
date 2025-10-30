@@ -26,14 +26,17 @@ mcpServer.tool(
       .describe("進行中の発話を中断する"),
   },
   async ({ text, direct, interrupt }) => {
-    aiStreamer
-      .dispatchSpeechLine(text, {
+    // run in background
+    (async () => {
+      for await (const _ of aiStreamer.dispatchSpeechLineStream(text, {
         direct,
         interrupt,
-      })
-      .catch((err) => {
-        console.error(`[error] MCP report_status: ${err}`);
-      });
+      })) {
+        // do nothing
+      }
+    })().catch((err) => {
+      console.error(`[error] MCP report_status: ${err}`);
+    });
 
     return {
       content: [

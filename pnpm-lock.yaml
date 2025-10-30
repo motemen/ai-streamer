@@ -18,11 +18,11 @@ importers:
         specifier: ^2.0.11
         version: 2.0.11(zod@3.25.76)
       '@hono/node-server':
-        specifier: ^1.13.7
-        version: 1.13.7(hono@4.6.14)
+        specifier: ^1.19.5
+        version: 1.19.5(hono@4.6.14)
       '@hono/node-ws':
         specifier: ^1.0.5
-        version: 1.0.5(@hono/node-server@1.13.7(hono@4.6.14))
+        version: 1.0.5(@hono/node-server@1.19.5(hono@4.6.14))
       '@modelcontextprotocol/sdk':
         specifier: ^1.11.4
         version: 1.11.4
@@ -537,8 +537,8 @@ packages:
     resolution: {integrity: sha512-br+OW3lqXXtwTOGt6RdX5KsF5y0EpaZ5AHLOkofl10SNYaCyOXvg15d6dd6mwrzBkq0RK78c+3B2ZUeRxF5+vg==}
     engines: {node: '>=16.12.0', npm: '>=6.14.0'}
 
-  '@hono/node-server@1.13.7':
-    resolution: {integrity: sha512-kTfUMsoloVKtRA2fLiGSd9qBddmru9KadNyhJCwgKBxTiNkaAJEwkVN9KV/rS4HtmmNRtUh6P+YpmjRMl0d9vQ==}
+  '@hono/node-server@1.19.5':
+    resolution: {integrity: sha512-iBuhh+uaaggeAuf+TftcjZyWh2GEgZcVGXkNtskLVoWaXhnJtC5HLHrU8W1KHDoucqO1MswwglmkWLFyiDn4WQ==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
@@ -2605,13 +2605,13 @@ snapshots:
     dependencies:
       resolve: 1.22.10
 
-  '@hono/node-server@1.13.7(hono@4.6.14)':
+  '@hono/node-server@1.19.5(hono@4.6.14)':
     dependencies:
       hono: 4.6.14
 
-  '@hono/node-ws@1.0.5(@hono/node-server@1.13.7(hono@4.6.14))':
+  '@hono/node-ws@1.0.5(@hono/node-server@1.19.5(hono@4.6.14))':
     dependencies:
-      '@hono/node-server': 1.13.7(hono@4.6.14)
+      '@hono/node-server': 1.19.5(hono@4.6.14)
       ws: 8.18.0
     transitivePeerDependencies:
       - bufferutil
