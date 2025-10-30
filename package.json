@@ -1,6 +1,6 @@
 {
   "name": "@motemen/ai-streamer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "bin": {
     "ai-streamer": "./dist/bin/ai-streamer.js"
