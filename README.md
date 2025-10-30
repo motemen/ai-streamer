@@ -4,6 +4,14 @@ ai-streamer は、OpenAI と VOICEVOX を活用し、静止画ベースの VTube
 
 ## 使い方
 
+### 事前準備
+
+VOICEVOX サーバを起動します。デフォルトでは 50021 ポートを使用します。
+
+```bash
+docker run -d -p 50021:50021 voicevox/voicevox_engine:latest
+```
+
 ### npx経由で起動（推奨）
 
 最も簡単な方法は、npxを使用して直接起動することです：
