@@ -50,6 +50,57 @@ sequenceDiagram
   end
 ```
 
+## 設定
+
+設定ファイルをJSで書けば、AI Streamerの動作をカスタマイズできます。
+
+### ツール機能
+
+発話生成時にAIが外部ツール（Tool Calling）を使用できるようになりました。これにより、AIが時刻を確認したり、アバターを変更したり、計算したりといった操作を自律的に行えます。
+
+デフォルトで以下のツールが利用可能です：
+- `setAvatar`: アバターを変更
+
+設定ファイル内でツールを直接定義できます：
+
+```js
+import { z } from "zod";
+
+export default {
+  tools: {
+    // 現在時刻を取得
+    getTime: {
+      description: "現在の時刻を取得する",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const now = new Date();
+        return now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+      },
+    },
+
+    // サイコロを振る
+    rollDice: {
+      description: "指定された面数のサイコロを振る",
+      inputSchema: z.object({
+        sides: z.number().default(6).describe("サイコロの面数"),
+      }),
+      execute: async ({ sides }) => {
+        const result = Math.floor(Math.random() * sides) + 1;
+        return { result }; // オブジェクトを返す例
+      },
+    },
+  },
+};
+```
+
+- ツールの`execute`関数のシグネチャは `(params, context) => Promise<any>` です。
+  - `params`: `inputSchema`で定義された入力オブジェクトです。
+  - `context`: `{ aiStreamer, ... }` のように、`aiStreamer`インスタンスを含むコンテキストオブジェクトです。
+- 戻り値は、AIに渡されるJSONシリアライズ可能な任意のオブジェクトです。
+- `inputSchema`にはZodスキーマを使用します。
+
+詳細は`configs/config.example-tools.js`を参照してください。
+
 # Development
 
     open -a OBS --args --remote-debugging-port=9222 --remote-allow-origins=http://localhost:9222

@@ -28,6 +28,7 @@ export const ConfigSchema = z.object({
     .object({
       model: z.string().default(DEFAULT_AI_MODEL),
       temperature: z.number().min(0).max(2).default(1.0),
+      providerOptions: z.unknown().optional(),
     })
     .default({
       model: DEFAULT_AI_MODEL,
@@ -56,9 +57,20 @@ export const ConfigSchema = z.object({
       z.object({
         from: z.string(),
         to: z.string(),
-      })
+      }),
     )
     .default([]),
+
+  tools: z
+    .record(
+      z.string(),
+      z.object({
+        description: z.string(),
+        inputSchema: z.any(), // zod Schema
+        execute: z.function().args(z.any(), z.any()).returns(z.any()),
+      }),
+    )
+    .optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -90,21 +102,5 @@ export function getAvailableAvatars(avatarDirectory: string): string[] {
  * 設定に基づいてシステムプロンプトを生成する
  */
 export function generateSystemPrompt(config: Config): string {
-  let prompt = config.prompt;
-
-  if (config.avatar.enabled) {
-    const availableAvatars = getAvailableAvatars(config.avatar.directory);
-
-    const avatarInstructions = `
-また、発言の内容に合わせて、文の前後に以下の形式のコマンドを挿入して表情を指定してください。
-<setAvatar default>
-
-avatarとして指定できるのは以下です。
-${availableAvatars.map((avatar) => `- ${avatar}`).join("\n")}
-`.trim();
-
-    prompt = `${prompt}\n\n${avatarInstructions}`;
-  }
-
-  return prompt;
+  return config.prompt;
 }
