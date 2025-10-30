@@ -4,6 +4,22 @@ ai-streamer は、OpenAI と VOICEVOX を活用し、静止画ベースの VTube
 
 ## 使い方
 
+### npx経由で起動（推奨）
+
+最も簡単な方法は、npxを使用して直接起動することです：
+
+```bash
+npx @motemen/ai-streamer
+```
+
+設定ファイルを指定する場合：
+
+```bash
+npx @motemen/ai-streamer --config config.example.toml
+```
+
+### 開発環境での起動
+
 1. リポジトリをクローンし、依存パッケージをインストール
 2. `pnpm dev` でサーバ・フロントエンドを起動
 3. OBS の Browser Source に `http://localhost:5173` を追加
