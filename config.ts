@@ -17,6 +17,13 @@ const DEFAULT_PROMPT = `
 これからゲームのプレイ状況を伝えるので、それに合わせたセリフを生成してください。
 `.trim();
 
+const TestingScriptSchema = z.object({
+  match: z.string(),
+  chunks: z.array(z.string()).nonempty(),
+  initialDelayMs: z.number().min(0).nullable().optional(),
+  chunkDelayMs: z.number().min(0).nullable().optional(),
+});
+
 export const ConfigSchema = z.object({
   voicevox: z
     .object({
@@ -59,6 +66,12 @@ export const ConfigSchema = z.object({
       })
     )
     .default([]),
+
+  testing: z
+    .object({
+      scripted: z.array(TestingScriptSchema).default([]),
+    })
+    .optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

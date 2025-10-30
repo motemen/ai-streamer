@@ -13,6 +13,7 @@ import {
   LanguageModelV1,
 } from "ai";
 import PQueue from "p-queue";
+import { simulateReadableStream } from "ai/test";
 
 import { z } from "zod";
 import createDebug from "debug";
@@ -153,6 +154,47 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     imageURL?: string,
     { signal }: { signal?: AbortSignal } = {}
   ): AsyncGenerator<string, void, unknown> {
+    const scripted = this.config.testing?.scripted?.find(
+      (entry) => entry.match === prompt
+    );
+    if (scripted) {
+      const initialDelayInMs =
+        scripted.initialDelayMs === undefined ? 0 : scripted.initialDelayMs;
+      const chunkDelayInMs =
+        scripted.chunkDelayMs === undefined ? 0 : scripted.chunkDelayMs;
+      const stream = simulateReadableStream<string>({
+        chunks: scripted.chunks,
+        initialDelayInMs,
+        chunkDelayInMs,
+      });
+      const reader = stream.getReader();
+      let totalBuffer = "";
+      let cancelled = false;
+      try {
+        while (true) {
+          if (signal?.aborted) {
+            await reader.cancel();
+            cancelled = true;
+            break;
+          }
+          const { value, done } = await reader.read();
+          if (done) {
+            break;
+          }
+          totalBuffer += value;
+          yield value;
+        }
+      } finally {
+        if (!cancelled) {
+          reader.releaseLock();
+        }
+      }
+      if (totalBuffer) {
+        this.history.push(totalBuffer);
+      }
+      return;
+    }
+
     const historyMessages: CoreAssistantMessage[] = this.history
       .slice(-this.config.maxHistory)
       .map((content) => ({

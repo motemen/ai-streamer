@@ -38,7 +38,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "pnpm tsx server.ts",
+    command: "pnpm tsx server.ts tests/e2e.config.toml",
     port: 7766,
   },
 });

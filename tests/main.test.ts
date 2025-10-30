@@ -24,6 +24,11 @@ async function requestChatAPI({
   });
 }
 
+const TEST_IDLE_FIRST_CHUNK = "Idle chunk 1";
+const TEST_IDLE_SECOND_CHUNK = "Idle chunk 2";
+const TEST_CHAT_PROMPT = "__TEST_CHAT_PROMPT__";
+const TEST_CHAT_RESPONSE = "Chat chunk 1";
+
 test("/api/chat 経由で字幕が反映される (direct=true)", async ({
   page,
   baseURL,
@@ -98,4 +103,61 @@ test("長い台詞の読み上げ中につぎの台詞が来ても混ざらな�
   expect(talkHistory.join("")).not.toContain("次の話が楽しみすぎる");
 
   await page.waitForTimeout(1000);
+});
+
+test("idle中の発話が /api/chat で終了する", async ({ page, baseURL }) => {
+  test.setTimeout(60 * 1000);
+
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    const caption = document.querySelector("[role=caption]");
+    if (!caption) {
+      throw new Error("caption element not found");
+    }
+    window._talkHistory = [];
+    const observer = new MutationObserver(() => {
+      (window._talkHistory = window._talkHistory || []).push(
+        caption.textContent ?? ""
+      );
+    });
+    observer.observe(caption, {
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  await page.waitForFunction(
+    (firstChunk: string) => {
+      return (window._talkHistory ?? []).some((entry) =>
+        entry.includes(firstChunk)
+      );
+    },
+    TEST_IDLE_FIRST_CHUNK,
+    { timeout: 15 * 1000 }
+  );
+
+  const response = await requestChatAPI({
+    baseURL,
+    prompt: TEST_CHAT_PROMPT,
+    interrupt: true,
+  });
+  expect(response.ok).toBeTruthy();
+
+  await page.waitForFunction(
+    (expected: string) => {
+      return (window._talkHistory ?? []).some((entry) =>
+        entry.includes(expected)
+      );
+    },
+    TEST_CHAT_RESPONSE,
+    { timeout: 10 * 1000 }
+  );
+
+  await page.waitForTimeout(2500);
+
+  const talkHistory = await page.evaluate(() => window._talkHistory ?? []);
+  expect(talkHistory.join("\n")).toContain(TEST_CHAT_RESPONSE);
+  expect(talkHistory.join("\n")).not.toContain(TEST_IDLE_SECOND_CHUNK);
 });

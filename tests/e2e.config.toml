@@ -1,0 +1,16 @@
+prompt = "テスト用プロンプト"
+
+[idle]
+timeout = 1200
+prompt = "__TEST_IDLE_PROMPT__"
+
+[testing]
+
+[[testing.scripted]]
+match = "__TEST_IDLE_PROMPT__"
+chunks = ["Idle chunk 1", "Idle chunk 2"]
+chunkDelayMs = 2000
+
+[[testing.scripted]]
+match = "__TEST_CHAT_PROMPT__"
+chunks = ["Chat chunk 1"]
