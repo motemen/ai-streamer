@@ -101,7 +101,8 @@ app.post("/api/chat", async (c) => {
           interrupt,
           direct,
         })) {
-          const jsonLine = JSON.stringify({ text, type: "speech_chunk" }) + "\n";
+          const jsonLine =
+            JSON.stringify({ text, type: "speech_chunk" }) + "\n";
           controller.enqueue(encoder.encode(jsonLine));
         }
 
@@ -110,14 +111,15 @@ app.post("/api/chat", async (c) => {
         controller.enqueue(encoder.encode(completeMessage));
         controller.close();
       } catch (error) {
-        const errorMessage = JSON.stringify({
-          type: "error",
-          error: error instanceof Error ? error.message : "Unknown error"
-        }) + "\n";
+        const errorMessage =
+          JSON.stringify({
+            type: "error",
+            error: error instanceof Error ? error.message : "Unknown error",
+          }) + "\n";
         controller.enqueue(encoder.encode(errorMessage));
         controller.close();
       }
-    }
+    },
   });
 
   return new Response(readable, {
@@ -145,7 +147,7 @@ app.post("/api/idle", async (c) => {
       try {
         for await (const text of aiStreamer.dispatchSpeechLineStream(
           idlePrompt,
-          {}
+          {},
         )) {
           const jsonLine =
             JSON.stringify({ text, type: "speech_chunk" }) + "\n";

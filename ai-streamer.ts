@@ -87,15 +87,13 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     }
   }
 
-  
-
   async *dispatchSpeechLineStream(
     prompt: string,
     {
       imageURL,
       interrupt,
       direct,
-    }: { imageURL?: string; interrupt?: boolean; direct?: boolean }
+    }: { imageURL?: string; interrupt?: boolean; direct?: boolean },
   ): AsyncGenerator<string, void, unknown> {
     if (interrupt) {
       this.cancelCurrentTask();
@@ -194,7 +192,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
     { signal }: { signal?: AbortSignal } = {},
   ): AsyncGenerator<string, void, unknown> {
     const scripted = this.config.testing?.scripted?.find(
-      (entry) => entry.match === prompt
+      (entry) => entry.match === prompt,
     );
     if (scripted) {
       const initialDelayInMs =
