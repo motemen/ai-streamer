@@ -23,12 +23,6 @@ body {
 }
 
 .text {
-  z-index: 10;
-  color: var(--text-color);
-}
-
-.shadow,
-.text {
   position: absolute;
   bottom: 2%;
   width: 90%;
@@ -40,11 +34,10 @@ body {
   font-size: 5vh;
   word-break: keep-all;
   overflow-wrap: anywhere;
-}
-
-.shadow {
+  z-index: 10;
+  color: var(--text-color);
   -webkit-text-stroke: 1vh #000;
-  z-index: 5;
+  paint-order: stroke fill;
 }
 
 .avatar {

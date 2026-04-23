@@ -20,9 +20,6 @@ function Caption({ text }: { text: string }) {
       <div className={styles.text} role="caption">
         {text}
       </div>
-      <div className={styles.shadow} role="none">
-        {text}
-      </div>
     </div>
   );
 }
