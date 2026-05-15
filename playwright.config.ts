@@ -32,7 +32,6 @@ export default defineConfig({
         launchOptions: {
           args: ["--autoplay-policy=no-user-gesture-required"],
         },
-        viewport: { width: 1920, height: 1080 },
       },
     },
   ],
