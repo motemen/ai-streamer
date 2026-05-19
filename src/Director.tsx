@@ -13,6 +13,7 @@ export default function Director() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isValid, setIsValid] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);
+  const directButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleChange = () => {
     setIsValid(formRef.current?.checkValidity() ?? true);
@@ -46,7 +47,10 @@ export default function Director() {
   };
 
   // プロンプト送信処理
-  const sendPrompt = async (ev: React.FormEvent<HTMLFormElement>) => {
+  const sendPrompt = async (
+    ev: React.FormEvent<HTMLFormElement>,
+    direct?: boolean,
+  ) => {
     ev.preventDefault();
 
     const formData = new FormData(ev.currentTarget);
@@ -69,10 +73,12 @@ export default function Director() {
     });
 
     try {
+      const body: Record<string, unknown> = { prompt: promptValue };
+      if (direct) body.direct = true;
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: promptValue }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -97,9 +103,14 @@ export default function Director() {
   };
 
   const handleKeyDown = (ev: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (ev.key === "Enter" && ev.ctrlKey) {
+    if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
       ev.preventDefault();
-      ev.currentTarget.form?.requestSubmit();
+      const direct = ev.altKey;
+      if (direct) {
+        directButtonRef.current?.click();
+      } else {
+        ev.currentTarget.form?.requestSubmit();
+      }
     }
   };
 
@@ -111,7 +122,13 @@ export default function Director() {
         </h2>
 
         <form
-          onSubmit={sendPrompt}
+          onSubmit={(ev) => {
+            const submitter = (ev.nativeEvent as SubmitEvent).submitter;
+            const direct =
+              submitter instanceof HTMLButtonElement &&
+              submitter.name === "direct";
+            sendPrompt(ev, direct);
+          }}
           ref={formRef}
           className="flex flex-col gap-4"
         >
@@ -121,16 +138,27 @@ export default function Director() {
               onKeyDown={handleKeyDown}
               rows={3}
               className="flex-1 p-3 text-base border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
-              placeholder="プロンプトを入力... (Ctrl+Enterで送信)"
+              placeholder="プロンプトを入力... (Cmd/Ctrl+Enter で送信、+Alt で Direct)"
               required
             />
-            <button
-              type="submit"
-              disabled={!isValid}
-              className="px-4 py-2 rounded-md text-white font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              送信
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="submit"
+                disabled={!isValid}
+                className="px-4 py-2 rounded-md text-white font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                送信
+              </button>
+              <button
+                type="submit"
+                name="direct"
+                ref={directButtonRef}
+                disabled={!isValid}
+                className="px-4 py-2 rounded-md text-white font-medium text-sm bg-indigo-400 hover:bg-indigo-500 active:bg-indigo-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Direct
+              </button>
+            </div>
           </div>
         </form>
 
