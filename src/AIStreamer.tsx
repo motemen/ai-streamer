@@ -6,7 +6,9 @@ function AIStreamer() {
   return (
     <div className={styles.container}>
       <CaptionView />
-      <CharacterView />
+      <div className={styles.avatarSlot}>
+        <CharacterView />
+      </div>
     </div>
   );
 }
