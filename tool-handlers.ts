@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { tool } from "ai";
-import { SET_AVATAR } from "./commands.js";
-import type AIStreamer from "./ai-streamer.js";
-import { getAvailableAvatars } from "./config.js";
+import { SET_AVATAR } from "./commands.ts";
+import type AIStreamer from "./ai-streamer.ts";
+import { getAvailableAvatars } from "./config.ts";
 
 export const buildDefaultTools = (aiStreamer: AIStreamer) => {
   const availableAvatars = getAvailableAvatars(

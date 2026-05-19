@@ -9,13 +9,13 @@ import { loadConfig } from "c12";
 import createDebug from "debug";
 import { z } from "zod";
 
-import { aiStreamer } from "./ai-streamer.js";
+import { aiStreamer } from "./ai-streamer.ts";
 import {
   CHARACTER_TALKING,
   type ConfigureCommand,
   type FrontendCommand,
-} from "./commands.js";
-import { mcpServer } from "./mcp.js";
+} from "./commands.ts";
+import { mcpServer } from "./mcp.ts";
 
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";

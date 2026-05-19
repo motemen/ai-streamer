@@ -26,14 +26,14 @@ import {
   PLAY_AUDIO,
   CLEAR_QUEUE,
   DEFAULT_SLOT,
-} from "./commands.js";
+} from "./commands.ts";
 
 import {
   ConfigSchema,
   DEFAULT_VOICEVOX_ORIGIN,
   generateSystemPrompt,
-} from "./config.js";
-import { buildDefaultTools } from "./tool-handlers.js";
+} from "./config.ts";
+import { buildDefaultTools } from "./tool-handlers.ts";
 
 const debug = createDebug("aistreamer");
 

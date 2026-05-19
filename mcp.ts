@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { aiStreamer } from "./ai-streamer.js";
+import { aiStreamer } from "./ai-streamer.ts";
 
 export const mcpServer = new McpServer({
   name: "AI Streamer MCP",

@@ -12,7 +12,9 @@
     "skipLibCheck": true,
     "outDir": "./dist",
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
   },
   "include": [
     "server.ts",
