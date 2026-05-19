@@ -10,7 +10,11 @@ import createDebug from "debug";
 import { z } from "zod";
 
 import { aiStreamer } from "./ai-streamer.js";
-import type { ConfigureCommand, FrontendCommand } from "./commands.js";
+import {
+  CHARACTER_TALKING,
+  type ConfigureCommand,
+  type FrontendCommand,
+} from "./commands.js";
 import { mcpServer } from "./mcp.js";
 
 import { fileURLToPath } from "node:url";
@@ -30,6 +34,8 @@ app.use(
     rewriteRequestPath: (path) =>
       ({
         "/director": "/director.html",
+        "/caption": "/caption.html",
+        "/character": "/character.html",
       })[path] ?? path,
   }),
 );
@@ -110,6 +116,29 @@ app.post("/api/idle", async (c) => {
 
   const speechLine = await aiStreamer.dispatchSpeechLine(idlePrompt, {});
   return c.json({ message: "ok", speechLine });
+});
+
+const PlaybackStateSchema = z.object({
+  slot: z.string().default("default"),
+  talking: z.boolean(),
+});
+
+app.post("/api/playback-state", async (c) => {
+  const body = await c.req.json();
+  const { success, data, error } = PlaybackStateSchema.safeParse(body);
+  if (!success) {
+    return c.json(
+      { error: "Invalid payload", details: error },
+      { status: 400 },
+    );
+  }
+
+  aiStreamer.emit("frontendCommand", {
+    type: CHARACTER_TALKING,
+    slot: data.slot,
+    talking: data.talking,
+  });
+  return c.json({ message: "ok" });
 });
 
 app.get("/api/avatar/:name", async (c) => {

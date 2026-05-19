@@ -10,6 +10,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         director: resolve(__dirname, "director.html"),
+        caption: resolve(__dirname, "caption.html"),
+        character: resolve(__dirname, "character.html"),
       },
     },
   },

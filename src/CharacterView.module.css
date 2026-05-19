@@ -1,0 +1,30 @@
+body {
+  overflow: hidden;
+  background-color: transparent;
+}
+
+.avatar {
+  position: absolute;
+  bottom: -30vh;
+  right: -5vw;
+  width: 30vw;
+  z-index: -10;
+}
+
+.avatarImage {
+  width: 100%;
+  transform-origin: bottom center;
+}
+
+.talking {
+  animation: talking 0.18s ease-in-out infinite alternate;
+}
+
+@keyframes talking {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0.985);
+  }
+}

@@ -25,6 +25,7 @@ import {
   UPDATE_CAPTION,
   PLAY_AUDIO,
   CLEAR_QUEUE,
+  DEFAULT_SLOT,
 } from "./commands.js";
 
 import {
@@ -92,7 +93,13 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
       imageURL,
       interrupt,
       direct,
-    }: { imageURL?: string; interrupt?: boolean; direct?: boolean },
+      slot = DEFAULT_SLOT,
+    }: {
+      imageURL?: string;
+      interrupt?: boolean;
+      direct?: boolean;
+      slot?: string;
+    },
   ): Promise<void | string[]> {
     if (interrupt) {
       this.cancelCurrentTask();
@@ -132,7 +139,7 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
             })
             .trim();
 
-          commands.push({ type: UPDATE_CAPTION, caption: text });
+          commands.push({ type: UPDATE_CAPTION, caption: text, slot });
 
           const audioBuffer = await this.synthesizeAudio(text, {
             signal: abortController.signal,
@@ -143,7 +150,11 @@ class AIStreamer extends EventEmitter<AIStreamerEventMap> {
           }
 
           const audioDataBase64 = Buffer.from(audioBuffer).toString("base64");
-          this.emit("frontendCommand", { type: PLAY_AUDIO, audioDataBase64 });
+          this.emit("frontendCommand", {
+            type: PLAY_AUDIO,
+            audioDataBase64,
+            slot,
+          });
         }
       } finally {
         if (this.currentAbortController === abortController) {
